@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sushi",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
