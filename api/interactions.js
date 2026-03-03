@@ -58,17 +58,17 @@ export default async function handler(req, res) {
   const signature = req.headers["x-signature-ed25519"];
   const timestamp = req.headers["x-signature-timestamp"];
 
-  // 🔹 Discord interaction verification
+  // 🔹 Discord verification
   if (signature && timestamp) {
     const isValid = verifySignature(signature, timestamp, rawBody);
 
     if (!isValid) {
-      return res.status(401).send("Invalid request signature");
+      return res.status(401).send("Invalid signature");
     }
 
     const interaction = JSON.parse(rawBody);
 
-    // Required for verification
+    // Required for Discord verification
     if (interaction.type === 1) {
       return res.status(200).json({ type: 1 });
     }
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ type: 4, data: { content: "OK" } });
   }
 
-  // 🔹 Vercel Cron
+  // 🔹 External cron trigger
   if (req.headers.authorization === `Bearer ${CRON_SECRET}`) {
     await postSushi();
     return res.status(200).json({ success: true });
