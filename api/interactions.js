@@ -1,23 +1,17 @@
 import nacl from "tweetnacl";
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const PUBLIC_KEY = process.env.PUBLIC_KEY;
-const CRON_SECRET = process.env.CRON_SECRET;
-
-const CHANNEL_ID = "1478451760027799685";
-
 export const config = {
   api: {
     bodyParser: false
   }
 };
 
-function verifyDiscordRequest(req, body) {
-  const signature = req.headers["x-signature-ed25519"];
-  const timestamp = req.headers["x-signature-timestamp"];
+const PUBLIC_KEY = process.env.PUBLIC_KEY;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CRON_SECRET = process.env.CRON_SECRET;
+const CHANNEL_ID = "1478451760027799685";
 
-  if (!signature || !timestamp) return false;
-
+function verifySignature(signature, timestamp, body) {
   return nacl.sign.detached.verify(
     Buffer.from(timestamp + body),
     Buffer.from(signature, "hex"),
@@ -55,19 +49,26 @@ async function postSushi() {
 }
 
 export default async function handler(req, res) {
-  const rawBody = await new Promise(resolve => {
-    let data = "";
-    req.on("data", chunk => (data += chunk));
-    req.on("end", () => resolve(data));
-  });
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  const rawBody = Buffer.concat(chunks).toString("utf8");
 
-  if (req.headers["x-signature-ed25519"]) {
-    if (!verifyDiscordRequest(req, rawBody)) {
-      return res.status(401).send("Invalid signature");
+  const signature = req.headers["x-signature-ed25519"];
+  const timestamp = req.headers["x-signature-timestamp"];
+
+  // 🔹 Discord interaction verification
+  if (signature && timestamp) {
+    const isValid = verifySignature(signature, timestamp, rawBody);
+
+    if (!isValid) {
+      return res.status(401).send("Invalid request signature");
     }
 
     const interaction = JSON.parse(rawBody);
 
+    // Required for verification
     if (interaction.type === 1) {
       return res.status(200).json({ type: 1 });
     }
@@ -75,6 +76,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ type: 4, data: { content: "OK" } });
   }
 
+  // 🔹 Vercel Cron
   if (req.headers.authorization === `Bearer ${CRON_SECRET}`) {
     await postSushi();
     return res.status(200).json({ success: true });
