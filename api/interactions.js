@@ -24,41 +24,47 @@ export default async function handler(req, res) {
       "<:blueDot:1478822082061271131> `/userinfo`"
     ].join("\n");
 
-    await fetch(`https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bot ${BOT_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        flags: 1 << 15,
-        components: [
-          {
-            type: 17,
-            components: [
-              {
-                type: 10,
-                content: "**Moderation Commands**"
-              },
-              {
-                type: 10,
-                content: moderation
-              },
-              {
-                type: 10,
-                content: "**Utility Commands**"
-              },
-              {
-                type: 10,
-                content: utility
-              }
-            ]
-          }
-        ]
-      })
-    });
+    const response = await fetch(
+      `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${BOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: "**Sushi Command**",
+          flags: 1 << 15,
+          components: [
+            {
+              type: 17,
+              components: [
+                {
+                  type: 10,
+                  content: "**Moderation Commands**"
+                },
+                {
+                  type: 10,
+                  content: moderation
+                },
+                {
+                  type: 10,
+                  content: "**Utility Commands**"
+                },
+                {
+                  type: 10,
+                  content: utility
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
 
-    return res.status(200).json({ sent: true });
+    const data = await response.json();
+
+    return res.status(200).json({ success: true, data });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
