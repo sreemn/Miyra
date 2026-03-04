@@ -25,22 +25,30 @@ async function registerCommands() {
   });
 }
 
+// Optional: you can call this once during deployment/startup
+// registerCommands().catch(console.error);
+
 export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).end();
+  }
+
   const body = req.body;
 
   if (body.type === 1) {
     return res.status(200).json({ type: 1 });
   }
 
-  if (body.type === 2 && body.data.name === "help") {
+  if (body.type === 2 && body.data?.name === "help") {
     return res.status(200).json({
       type: 4,
       data: {
+        flags: 64,
         embeds: [
           {
             color: 0xc2ceff,
             description:
-              "**Overview**\n\n" +
+              "Overview\n\n" +
               "Discord server: https://discord.gg/QkvahZ4yW3\n" +
               "Website: https://sushi.bot/\n" +
               "Dashboard: https://dash.sushi.bot/"
@@ -50,5 +58,11 @@ export default async function handler(req, res) {
     });
   }
 
-  return res.status(200).end();
+  return res.status(200).json({
+    type: 4,
+    data: {
+      content: "Unknown command",
+      flags: 64
+    }
+  });
 }
