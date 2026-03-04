@@ -15,6 +15,18 @@ const commands = [
   {
     name: "status",
     description: "View sushi bot status"
+  },
+  {
+    name: "userinfo",
+    description: "Show information about a user",
+    options: [
+      {
+        name: "user",
+        description: "The user to lookup",
+        type: 6,
+        required: true
+      }
+    ]
   }
 ];
 
@@ -41,7 +53,8 @@ export default async function handler(req, res) {
   }
 
   if (body.type === 2) {
-    const { name } = body.data;
+    const { name, options } = body.data;
+    const guildId = body.guild_id;
 
     if (name === "help") {
       return res.status(200).json({
@@ -69,6 +82,53 @@ export default async function handler(req, res) {
           embeds: [{
             color: 0xabe9b4,
             description: `Heartbeat: \`${heartbeat}ms\`\nLatency: \`${latency}ms\``
+          }]
+        }
+      });
+    }
+
+    if (name === "userinfo") {
+      const userId = options[0].value;
+      const user = body.data.resolved.users[userId];
+      const member = body.data.resolved.members?.[userId];
+
+      const createdAt = new Date(Number((BigInt(userId) >> 22n) + 1420070400000n));
+      const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      
+      const parts = createdAt.toUTCString().split(' ');
+      const formattedDate = `${parts[2]} ${parts[1]} ${parts[3]}`;
+      const formattedTime = `${parts[4]} GMT`;
+
+      const avatarUrl = user.avatar
+        ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
+        : `https://cdn.discordapp.com/embed/avatars/${Number(user.discriminator || 0) % 5}.png`;
+
+      const accountType = user.bot ? 'Bot' : user.system ? 'System' : 'User';
+
+      return res.status(200).json({
+        type: 4,
+        data: {
+          embeds: [{
+            color: 0xf18fac,
+            author: {
+              name: user.discriminator !== "0" ? `${user.username}#${user.discriminator}` : user.username,
+              icon_url: avatarUrl
+            },
+            fields: [
+              {
+                name: 'User ID:',
+                value: `\`\`\`\n${userId}\n\`\`\``
+              },
+              {
+                name: 'Created at:',
+                value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\``
+              },
+              {
+                name: 'Account Type:',
+                value: `\`\`\`\n${accountType}\n\`\`\``
+              }
+            ],
+            footer: !member ? { text: 'The user you are inspecting is not on this server.' } : undefined
           }]
         }
       });
