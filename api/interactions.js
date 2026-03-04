@@ -7,21 +7,17 @@ export const config = {
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = "1478451760027799685";
 
-async function getSushiImage() {
-  const queries = ["sushi", "nigiri", "maki", "salmon-sushi"];
-
-  const randomQuery = queries[Math.floor(Math.random() * queries.length)];
-
-  const res = await fetch(
-    `https://source.unsplash.com/800x600/?${randomQuery}`,
-    { redirect: "follow" }
-  );
-
-  return res.url; // final direct image URL
-}
-
 async function postSushi() {
-  const imageUrl = await getSushiImage();
+
+  const sushiImages = [
+    "https://images.unsplash.com/photo-1579871494447-9811cf80d66c",
+    "https://images.unsplash.com/photo-1553621042-f6e147245754",
+    "https://images.unsplash.com/photo-1562158070-622a7c1c09f4",
+    "https://images.unsplash.com/photo-1541696432-82c6da8ce7bf"
+  ];
+
+  const randomImage =
+    sushiImages[Math.floor(Math.random() * sushiImages.length)];
 
   const messageRes = await fetch(
     `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`,
@@ -35,18 +31,15 @@ async function postSushi() {
         embeds: [
           {
             title: "🍣 Fresh Sushi Drop",
-            image: { url: imageUrl },
-            color: 0xff4d4d
+            image: {
+              url: randomImage
+            },
+            color: 16711680
           }
         ]
       })
     }
   );
-
-  if (!messageRes.ok) {
-    const errorText = await messageRes.text();
-    throw new Error(errorText);
-  }
 
   const messageData = await messageRes.json();
   const messageId = messageData.id;
