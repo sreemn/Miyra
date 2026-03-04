@@ -51,7 +51,7 @@ export default async function handler(req, res) {
           embeds: [{
             color: 0xc2ceff,
             description: "You can find a list of commands here: https://sushibot.co/commands\n" +
-                         "Join the support server if you still have questions: https://discord.gg/QkvahZ4yW3\n\n" +
+                         "Join the server if you still have questions: https://discord.gg/QkvahZ4yW3\n\n" +
                          "The privacy policy can be found here: https://sushibot.co/privacy"
           }]
         }
