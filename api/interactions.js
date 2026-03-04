@@ -49,6 +49,8 @@ export default async function handler(req, res) {
             color: 0xc2ceff,
             description:
               "**Overview**\n\n" +
+              "> `/help <command>` - Shows information about a command\n" +
+              "> `/help <feature>` - Shows information about a feature\n\n" +
               "> Discord server: https://discord.gg/QkvahZ4yW3\n" +
               "> Website: https://sushibot.co/\n" +
               "> Dashboard: https://dash.sushibot.co/"
