@@ -46,11 +46,11 @@ async function sendCommandsPanel() {
             components: [
               {
                 type: 10,
-                content: "## Sushi Bot Command Center"
+                content: "## Sushi Bot Command's"
               },
               {
                 type: 10,
-                content: "**Moderation Commands**"
+                content: "Moderation Commands:"
               },
               {
                 type: 10,
@@ -58,7 +58,7 @@ async function sendCommandsPanel() {
               },
               {
                 type: 10,
-                content: "**Utility Commands**"
+                content: "Utility Commands:"
               },
               {
                 type: 10,
