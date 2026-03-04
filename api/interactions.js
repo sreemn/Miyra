@@ -48,10 +48,10 @@ export default async function handler(req, res) {
           {
             color: 0xc2ceff,
             description:
-              "Overview\n\n" +
+              "**Overview**\n\n" +
               "Discord server: https://discord.gg/QkvahZ4yW3\n" +
-              "Website: https://sushi.bot/\n" +
-              "Dashboard: https://dash.sushi.bot/"
+              "Website: https://sushibot.co/\n" +
+              "Dashboard: https://dash.sushibot.co/"
           }
         ]
       }
