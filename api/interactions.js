@@ -127,18 +127,22 @@ export default async function handler(req, res) {
     }
 
     if (name === "anime") {
+      res.status(200).json({ type: 5 });
+
       try {
         const subreddits = ["AnimeART", "Animewallpaper", "waifu"];
         const selectedSub = subreddits[Math.floor(Math.random() * subreddits.length)];
-        const redditRes = await fetch(`https://www.reddit.com/r/${selectedSub}/random.json`, {
-            headers: { 'User-Agent': 'SushiBot/1.0' }
+        const redditRes = await fetch(`https://www.reddit.com/r/${selectedSub}/hot.json?limit=30`, {
+          headers: { 'User-Agent': 'SushiBot/2.0' }
         });
         const redditData = await redditRes.json();
-        const post = redditData[0].data.children[0].data;
+        const posts = redditData.data.children.filter(p => p.data.url.match(/\.(jpg|png|gif|jpeg)$/));
+        const post = posts[Math.floor(Math.random() * posts.length)].data;
 
-        return res.status(200).json({
-          type: 4,
-          data: {
+        await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             flags: 32768,
             components: [
               {
@@ -168,14 +172,19 @@ export default async function handler(req, res) {
                 ]
               }
             ]
-          }
+          })
         });
       } catch (e) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Failed to fetch image. Try again.", flags: 64 }
+        await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: "Failed to fetch image. Please try again.",
+            flags: 64
+          })
         });
       }
+      return;
     }
   }
 
