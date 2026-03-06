@@ -7,6 +7,40 @@ export const config = {
 const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
+const commands = [
+  {
+    name: "help",
+    description: "Get information about sushi"
+  },
+  {
+    name: "status",
+    description: "View sushi bot status"
+  },
+  {
+    name: "userinfo",
+    description: "Show information about a user",
+    options: [
+      {
+        name: "user",
+        description: "The user to lookup",
+        type: 6,
+        required: true
+      }
+    ]
+  }
+];
+
+async function registerCommands() {
+  await fetch(`https://discord.com/api/v10/applications/${APP_ID}/commands`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bot ${BOT_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(commands)
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).end();
@@ -20,6 +54,7 @@ export default async function handler(req, res) {
 
   if (body.type === 2) {
     const { name, options } = body.data;
+    const guildId = body.guild_id;
 
     if (name === "help") {
       return res.status(200).json({
@@ -55,80 +90,48 @@ export default async function handler(req, res) {
     if (name === "userinfo") {
       const userId = options[0].value;
       const user = body.data.resolved.users[userId];
+      const member = body.data.resolved.members?.[userId];
+
+      const createdAt = new Date(Number((BigInt(userId) >> 22n) + 1420070400000n));
+      const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      
+      const parts = createdAt.toUTCString().split(' ');
+      const formattedDate = `${parts[2]} ${parts[1]} ${parts[3]}`;
+      const formattedTime = `${parts[4]} GMT`;
+
       const avatarUrl = user.avatar
         ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
-        : `https://cdn.discordapp.com/embed/avatars/0.png`;
+        : `https://cdn.discordapp.com/embed/avatars/${Number(user.discriminator || 0) % 5}.png`;
+
+      const accountType = user.bot ? 'Bot' : user.system ? 'System' : 'User';
 
       return res.status(200).json({
         type: 4,
         data: {
           embeds: [{
             color: 0x8f95f5,
-            author: { name: user.username, icon_url: avatarUrl },
-            fields: [{ name: 'User ID:', value: `\`${userId}\`` }]
+            author: {
+              name: user.discriminator !== "0" ? `${user.username}#${user.discriminator}` : user.username,
+              icon_url: avatarUrl
+            },
+            fields: [
+              {
+                name: 'User ID:',
+                value: `\`\`\`\n${userId}\n\`\`\``
+              },
+              {
+                name: 'Created at:',
+                value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\``
+              },
+              {
+                name: 'Account Type:',
+                value: `\`\`\`\n${accountType}\n\`\`\``
+              }
+            ],
+            footer: !member ? { text: 'The user you are inspecting is not on this server.' } : undefined
           }]
         }
       });
-    }
-
-    if (name === "anime") {
-      res.status(200).json({ type: 5 });
-
-      try {
-        const subreddits = ["AnimeART", "Animewallpaper"];
-        const selectedSub = subreddits[Math.floor(Math.random() * subreddits.length)];
-        const redditRes = await fetch(`https://www.reddit.com/r/${selectedSub}/hot.json?limit=20`, {
-          headers: { 'User-Agent': 'SushiBot/3.0' }
-        });
-        const redditData = await redditRes.json();
-        const posts = redditData.data.children.filter(p => p.data.url.match(/\.(jpg|png|jpeg)$/));
-        const post = posts[Math.floor(Math.random() * posts.length)].data;
-
-        await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            flags: 32768,
-            components: [
-              {
-                type: 17,
-                accent_color: 16711935,
-                components: [
-                  {
-                    type: 9,
-                    components: [
-                      {
-                        type: 10,
-                        style: "heading",
-                        content: post.title.substring(0, 100)
-                      }
-                    ]
-                  },
-                  {
-                    type: 12,
-                    items: [
-                      {
-                        media: {
-                          url: post.url
-                        }
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          })
-        });
-      } catch (e) {
-        await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: "Failed to fetch image. Please try again."
-          })
-        });
-      }
-      return;
     }
   }
 
