@@ -27,6 +27,10 @@ const commands = [
         required: true
       }
     ]
+  },
+  {
+    name: "anime",
+    description: "Get a random anime character image"
   }
 ];
 
@@ -54,7 +58,6 @@ export default async function handler(req, res) {
 
   if (body.type === 2) {
     const { name, options } = body.data;
-    const guildId = body.guild_id;
 
     if (name === "help") {
       return res.status(200).json({
@@ -91,10 +94,8 @@ export default async function handler(req, res) {
       const userId = options[0].value;
       const user = body.data.resolved.users[userId];
       const member = body.data.resolved.members?.[userId];
-
       const createdAt = new Date(Number((BigInt(userId) >> 22n) + 1420070400000n));
       const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-      
       const parts = createdAt.toUTCString().split(' ');
       const formattedDate = `${parts[2]} ${parts[1]} ${parts[3]}`;
       const formattedTime = `${parts[4]} GMT`;
@@ -115,21 +116,55 @@ export default async function handler(req, res) {
               icon_url: avatarUrl
             },
             fields: [
-              {
-                name: 'User ID:',
-                value: `\`\`\`\n${userId}\n\`\`\``
-              },
-              {
-                name: 'Created at:',
-                value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\``
-              },
-              {
-                name: 'Account Type:',
-                value: `\`\`\`\n${accountType}\n\`\`\``
-              }
+              { name: 'User ID:', value: `\`\`\`\n${userId}\n\`\`\`` },
+              { name: 'Created at:', value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\`` },
+              { name: 'Account Type:', value: `\`\`\`\n${accountType}\n\`\`\`` }
             ],
             footer: !member ? { text: 'The user you are inspecting is not on this server.' } : undefined
           }]
+        }
+      });
+    }
+
+    if (name === "anime") {
+      const subreddits = ["AnimeART", "Animewallpaper"];
+      const selectedSub = subreddits[Math.floor(Math.random() * subreddits.length)];
+      const redditRes = await fetch(`https://www.reddit.com/r/${selectedSub}/random.json`);
+      const redditData = await redditRes.json();
+      const post = redditData[0].data.children[0].data;
+
+      return res.status(200).json({
+        type: 4,
+        data: {
+          flags: 32768,
+          components: [
+            {
+              type: 17,
+              accent_color: 16711935,
+              components: [
+                {
+                  type: 9,
+                  components: [
+                    {
+                      type: 10,
+                      style: "heading",
+                      content: post.title
+                    }
+                  ]
+                },
+                {
+                  type: 12,
+                  items: [
+                    {
+                      media: {
+                        url: post.url
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       });
     }
