@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       guildLogs[guildId] = channelId;
 
       await sendLog(guildId,{
-        color:0xf1c40f,
+        color:0xf8cf6f,
         title:"<:Channel:1479924706969653469> Logging Enabled",
         description:`Logs will now be sent to <#${channelId}>`
       });
