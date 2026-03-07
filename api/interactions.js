@@ -10,6 +10,8 @@ const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 
+const guildLogs = {};
+
 const commands = [
   {
     name: "help",
@@ -30,6 +32,18 @@ const commands = [
         required: true
       }
     ]
+  },
+  {
+    name: "setlogs",
+    description: "Set the logging channel",
+    options: [
+      {
+        name: "channel",
+        description: "Channel for logs",
+        type: 7,
+        required: true
+      }
+    ]
   }
 ];
 
@@ -41,6 +55,20 @@ async function registerCommands() {
       "Content-Type": "application/json"
     },
     body: JSON.stringify(commands)
+  });
+}
+
+async function sendLog(guildId, embed) {
+  const channelId = guildLogs[guildId];
+  if (!channelId) return;
+
+  await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${BOT_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ embeds: [embed] })
   });
 }
 
@@ -80,25 +108,73 @@ export default async function handler(req, res) {
   }
 
   if (body.type === 2) {
+
     const { name, options } = body.data;
     const guildId = body.guild_id;
+    const user = body.member?.user;
+
+    const baseLog = {
+      color: 0x8f95f5,
+      title: "<:Note:1479921214863446158> Command Used",
+      fields: [
+        {
+          name: "<:Assignee:1479921169363894384> User",
+          value: `${user?.username} (${user?.id})`
+        },
+        {
+          name: "<:Code:1479921184110940180> Command",
+          value: `/${name}`
+        },
+        {
+          name: "<:Clock:1479921181439164507> Time",
+          value: `<t:${Math.floor(Date.now()/1000)}:F>`
+        }
+      ]
+    };
+
+    if (name === "setlogs") {
+
+      const channelId = options[0].value;
+      guildLogs[guildId] = channelId;
+
+      await sendLog(guildId,{
+        color:0x8f95f5,
+        title:"<:Channel:1479921176896733384> Logging Enabled",
+        description:`Logs will now be sent to <#${channelId}>`
+      });
+
+      return res.status(200).json({
+        type:4,
+        data:{
+          embeds:[{
+            color:0x8f95f5,
+            description:`<:Check:1479921178759008287> Logs configured for <#${channelId}>`
+          }],
+          flags:64
+        }
+      });
+    }
 
     if (name === "help") {
+
+      await sendLog(guildId, baseLog);
+
       return res.status(200).json({
         type: 4,
         data: {
           flags: 64,
           embeds: [{
             color: 0xe7a67c,
-            description: "You can find a list of commands here: https://sushibot.co/commands\n" +
-                         "Join the server if you still have questions: https://discord.gg/QkvahZ4yW3\n\n" +
-                         "The privacy policy can be found here: https://sushibot.co/privacy"
+            description: "You can find a list of commands here: https://sushibot.co/commands\nJoin the server if you still have questions: https://discord.gg/QkvahZ4yW3\n\nThe privacy policy can be found here: https://sushibot.co/privacy"
           }]
         }
       });
     }
 
     if (name === "status") {
+
+      await sendLog(guildId, baseLog);
+
       const interactionTime = Number((BigInt(body.id) >> 22n) + 1420070400000n);
       const latency = Date.now() - interactionTime;
       const heartbeat = Math.floor(Math.random() * (135 - 115) + 115);
@@ -115,22 +191,25 @@ export default async function handler(req, res) {
     }
 
     if (name === "userinfo") {
+
+      await sendLog(guildId, baseLog);
+
       const userId = options[0].value;
-      const user = body.data.resolved.users[userId];
+      const userData = body.data.resolved.users[userId];
       const member = body.data.resolved.members?.[userId];
 
       const createdAt = new Date(Number((BigInt(userId) >> 22n) + 1420070400000n));
       const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       const parts = createdAt.toUTCString().split(' ');
       const formattedDate = `${parts[2]} ${parts[1]} ${parts[3]}`;
       const formattedTime = `${parts[4]} GMT`;
 
-      const avatarUrl = user.avatar
-        ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
-        : `https://cdn.discordapp.com/embed/avatars/${Number(user.discriminator || 0) % 5}.png`;
+      const avatarUrl = userData.avatar
+        ? `https://cdn.discordapp.com/avatars/${userId}/${userData.avatar}.png`
+        : `https://cdn.discordapp.com/embed/avatars/${Number(userData.discriminator || 0) % 5}.png`;
 
-      const accountType = user.bot ? 'Bot' : user.system ? 'System' : 'User';
+      const accountType = userData.bot ? 'Bot' : userData.system ? 'System' : 'User';
 
       return res.status(200).json({
         type: 4,
@@ -138,7 +217,7 @@ export default async function handler(req, res) {
           embeds: [{
             color: 0x8f95f5,
             author: {
-              name: user.discriminator !== "0" ? `${user.username}#${user.discriminator}` : user.username,
+              name: userData.discriminator !== "0" ? `${userData.username}#${userData.discriminator}` : userData.username,
               icon_url: avatarUrl
             },
             fields: [
@@ -165,7 +244,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     type: 4,
     data: {
-      content: "Unknown command",
+      content: "<:Warning:1479921231560966256> Unknown command",
       flags: 64
     }
   });
