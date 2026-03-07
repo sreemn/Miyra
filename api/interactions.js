@@ -1,4 +1,5 @@
 import nacl from "tweetnacl";
+import { MongoClient } from "mongodb";
 
 export const config = {
   api: {
@@ -9,60 +10,23 @@ export const config = {
 const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const guildLogs = {};
+let cachedDb = null;
 
-const commands = [
-  {
-    name: "help",
-    description: "Get information about sushi"
-  },
-  {
-    name: "status",
-    description: "View sushi bot status"
-  },
-  {
-    name: "userinfo",
-    description: "Show information about a user",
-    options: [
-      {
-        name: "user",
-        description: "The user to lookup",
-        type: 6,
-        required: true
-      }
-    ]
-  },
-  {
-    name: "setlogs",
-    description: "Set the logging channel",
-    options: [
-      {
-        name: "channel",
-        description: "Channel for logs",
-        type: 7,
-        required: true
-      }
-    ]
-  }
-];
-
-async function registerCommands() {
-  await fetch(`https://discord.com/api/v10/applications/${APP_ID}/commands`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bot ${BOT_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(commands)
-  });
+async function getDb() {
+  if (cachedDb) return cachedDb;
+  const client = await MongoClient.connect(MONGODB_URI);
+  cachedDb = client.db("sushi_bot");
+  return cachedDb;
 }
 
 async function sendLog(guildId, embed) {
-  const channelId = guildLogs[guildId];
-  if (!channelId) return;
+  const db = await getDb();
+  const settings = await db.collection("settings").findOne({ guildId });
+  if (!settings || !settings.channelId) return;
 
-  await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+  await fetch(`https://discord.com/api/v10/channels/${settings.channelId}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bot ${BOT_TOKEN}`,
@@ -73,7 +37,6 @@ async function sendLog(guildId, embed) {
 }
 
 export default async function handler(req, res) {
-
   if (req.method !== "POST") {
     return res.status(405).end();
   }
@@ -83,12 +46,8 @@ export default async function handler(req, res) {
 
   const rawBody = await new Promise((resolve) => {
     let data = "";
-    req.on("data", chunk => {
-      data += chunk;
-    });
-    req.on("end", () => {
-      resolve(data);
-    });
+    req.on("data", chunk => { data += chunk; });
+    req.on("end", () => { resolve(data); });
   });
 
   const isVerified = nacl.sign.detached.verify(
@@ -108,10 +67,10 @@ export default async function handler(req, res) {
   }
 
   if (body.type === 2) {
-
     const { name, options } = body.data;
     const guildId = body.guild_id;
     const user = body.member?.user;
+    const db = await getDb();
 
     const baseLog = {
       color: 0x8f95f5,
@@ -127,38 +86,40 @@ export default async function handler(req, res) {
         },
         {
           name: "<:Clock:1479924713542389933> Time",
-          value: `<t:${Math.floor(Date.now()/1000)}:F>`
+          value: `<t:${Math.floor(Date.now() / 1000)}:F>`
         }
       ]
     };
 
     if (name === "setlogs") {
-
       const channelId = options[0].value;
-      guildLogs[guildId] = channelId;
+      
+      await db.collection("settings").updateOne(
+        { guildId },
+        { $set: { channelId } },
+        { upsert: true }
+      );
 
-      await sendLog(guildId,{
-        color:0xf8cf6f,
-        title:"<:Channel:1479924706969653469> Logging Enabled",
-        description:`Logs will now be sent to <#${channelId}>`
+      await sendLog(guildId, {
+        color: 0xf8cf6f,
+        title: "<:Channel:1479924706969653469> Logging Enabled",
+        description: `Logs will now be sent to <#${channelId}>`
       });
 
       return res.status(200).json({
-        type:4,
-        data:{
-          embeds:[{
-            color:0x6ed683,
-            description:`<:Check:1479924710463770796> Logs configured for <#${channelId}>`
+        type: 4,
+        data: {
+          embeds: [{
+            color: 0x6ed683,
+            description: `<:Check:1479924710463770796> Logs configured for <#${channelId}>`
           }],
-          flags:64
+          flags: 64
         }
       });
     }
 
     if (name === "help") {
-
       await sendLog(guildId, baseLog);
-
       return res.status(200).json({
         type: 4,
         data: {
@@ -172,9 +133,7 @@ export default async function handler(req, res) {
     }
 
     if (name === "status") {
-
       await sendLog(guildId, baseLog);
-
       const interactionTime = Number((BigInt(body.id) >> 22n) + 1420070400000n);
       const latency = Date.now() - interactionTime;
       const heartbeat = Math.floor(Math.random() * (135 - 115) + 115);
@@ -191,9 +150,7 @@ export default async function handler(req, res) {
     }
 
     if (name === "userinfo") {
-
       await sendLog(guildId, baseLog);
-
       const userId = options[0].value;
       const userData = body.data.resolved.users[userId];
       const member = body.data.resolved.members?.[userId];
@@ -221,18 +178,9 @@ export default async function handler(req, res) {
               icon_url: avatarUrl
             },
             fields: [
-              {
-                name: 'User ID:',
-                value: `\`\`\`\n${userId}\n\`\`\``
-              },
-              {
-                name: 'Created at:',
-                value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\``
-              },
-              {
-                name: 'Account Type:',
-                value: `\`\`\`\n${accountType}\n\`\`\``
-              }
+              { name: 'User ID:', value: `\`\`\`\n${userId}\n\`\`\`` },
+              { name: 'Created at:', value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\`` },
+              { name: 'Account Type:', value: `\`\`\`\n${accountType}\n\`\`\`` }
             ],
             footer: !member ? { text: 'The user you are inspecting is not on this server.' } : undefined
           }]
