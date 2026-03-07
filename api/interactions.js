@@ -115,18 +115,18 @@ export default async function handler(req, res) {
 
     const baseLog = {
       color: 0x8f95f5,
-      title: "<:Note:1479921214863446158> Command Used",
+      title: "<:Note:1479924744177455226> Command Used",
       fields: [
         {
-          name: "<:Assignee:1479921169363894384> User",
+          name: "<:Assignee:1479924699873017927> User",
           value: `${user?.username} (${user?.id})`
         },
         {
-          name: "<:Code:1479921184110940180> Command",
+          name: "<:Code:1479924715912171784> Command",
           value: `/${name}`
         },
         {
-          name: "<:Clock:1479921181439164507> Time",
+          name: "<:Clock:1479924713542389933> Time",
           value: `<t:${Math.floor(Date.now()/1000)}:F>`
         }
       ]
@@ -138,8 +138,8 @@ export default async function handler(req, res) {
       guildLogs[guildId] = channelId;
 
       await sendLog(guildId,{
-        color:0x8f95f5,
-        title:"<:Channel:1479921176896733384> Logging Enabled",
+        color:0xc7c9ce,
+        title:"<:Channel:1479924706969653469> Logging Enabled",
         description:`Logs will now be sent to <#${channelId}>`
       });
 
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
         data:{
           embeds:[{
             color:0x8f95f5,
-            description:`<:Check:1479921178759008287> Logs configured for <#${channelId}>`
+            description:`<:Check:1479924710463770796> Logs configured for <#${channelId}>`
           }],
           flags:64
         }
@@ -244,7 +244,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     type: 4,
     data: {
-      content: "<:Warning:1479921231560966256> Unknown command",
+      content: "<:Warning:1479924762892435657> Unknown command",
       flags: 64
     }
   });
