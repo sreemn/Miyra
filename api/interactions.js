@@ -39,7 +39,7 @@ const commands = [
     type: 2
   },
   {
-    name: "Mute",
+    name: "Timeout",
     type: 3
   }
 ];
@@ -64,14 +64,10 @@ export default async function handler(req, res) {
   const signature = req.headers["x-signature-ed25519"];
   const timestamp = req.headers["x-signature-timestamp"];
 
-  const rawBody = await new Promise((resolve) => {
+  const rawBody = await new Promise(resolve => {
     let data = "";
-    req.on("data", chunk => {
-      data += chunk;
-    });
-    req.on("end", () => {
-      resolve(data);
-    });
+    req.on("data", chunk => data += chunk);
+    req.on("end", () => resolve(data));
   });
 
   const isVerified = nacl.sign.detached.verify(
@@ -93,7 +89,6 @@ export default async function handler(req, res) {
   if (body.type === 2) {
 
     const name = body.data.name;
-    const options = body.data.options;
 
     if (name === "help") {
       return res.status(200).json({
@@ -102,7 +97,7 @@ export default async function handler(req, res) {
           flags: 64,
           embeds: [{
             color: 0xe7a67c,
-            description: "You can find a list of commands here: https://sushibot.co/commands\nJoin the server if you still have questions: https://discord.gg/QkvahZ4yW3\n\nThe privacy policy can be found here: https://sushibot.co/privacy"
+            description: "Command list: https://sushibot.co/commands"
           }]
         }
       });
@@ -112,14 +107,13 @@ export default async function handler(req, res) {
 
       const interactionTime = Number((BigInt(body.id) >> 22n) + 1420070400000n);
       const latency = Date.now() - interactionTime;
-      const heartbeat = Math.floor(Math.random() * (135 - 115) + 115);
 
       return res.status(200).json({
         type: 4,
         data: {
           embeds: [{
             color: 0x8f95f5,
-            description: `Heartbeat: \`${heartbeat}ms\`\nLatency: \`${latency}ms\``
+            description: `Latency: ${latency}ms`
           }]
         }
       });
@@ -127,47 +121,14 @@ export default async function handler(req, res) {
 
     if (name === "userinfo") {
 
-      const userId = options[0].value;
-      const user = body.data.resolved.users[userId];
-      const member = body.data.resolved.members?.[userId];
-
-      const createdAt = new Date(Number((BigInt(userId) >> 22n) + 1420070400000n));
-      const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-
-      const parts = createdAt.toUTCString().split(" ");
-      const formattedDate = `${parts[2]} ${parts[1]} ${parts[3]}`;
-      const formattedTime = `${parts[4]} GMT`;
-
-      const avatarUrl = user.avatar
-        ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
-        : `https://cdn.discordapp.com/embed/avatars/${Number(user.discriminator || 0) % 5}.png`;
-
-      const accountType = user.bot ? "Bot" : user.system ? "System" : "User";
+      const userId = body.data.options[0].value;
 
       return res.status(200).json({
         type: 4,
         data: {
           embeds: [{
             color: 0x8f95f5,
-            author: {
-              name: user.discriminator !== "0" ? `${user.username}#${user.discriminator}` : user.username,
-              icon_url: avatarUrl
-            },
-            fields: [
-              {
-                name: "User ID:",
-                value: `\`\`\`\n${userId}\n\`\`\``
-              },
-              {
-                name: "Created at:",
-                value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\``
-              },
-              {
-                name: "Account Type:",
-                value: `\`\`\`\n${accountType}\n\`\`\``
-              }
-            ],
-            footer: !member ? { text: "The user you are inspecting is not on this server." } : undefined
+            description: `User: <@${userId}>`
           }]
         }
       });
@@ -175,27 +136,37 @@ export default async function handler(req, res) {
 
     if (name === "Timeout") {
 
-      const targetUserId = body.data.target_id;
+      const guildId = body.guild_id;
 
-      return res.status(200).json({
-        type: 4,
-        data: {
-          flags: 64,
-          content: `Timeout requested for <@${targetUserId}>`
-        }
+      let targetUserId;
+
+      if (body.data.target_id) {
+        targetUserId = body.data.target_id;
+      }
+
+      if (body.data.resolved?.messages) {
+        const message = body.data.resolved.messages[body.data.target_id];
+        targetUserId = message.author.id;
+      }
+
+      const timeoutUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${targetUserId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bot ${BOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          communication_disabled_until: timeoutUntil
+        })
       });
-    }
-
-    if (name === "Mute") {
-
-      const message = body.data.resolved.messages[body.data.target_id];
-      const targetUserId = message.author.id;
 
       return res.status(200).json({
         type: 4,
         data: {
           flags: 64,
-          content: `Mute requested for <@${targetUserId}>`
+          content: `User <@${targetUserId}> has been timed out for 15 minutes`
         }
       });
     }
@@ -209,5 +180,4 @@ export default async function handler(req, res) {
       flags: 64
     }
   });
-
 }
