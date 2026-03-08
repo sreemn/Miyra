@@ -36,11 +36,13 @@ const commands = [
   },
   {
     name: "Timeout",
-    type: 2
+    type: 2,
+    default_member_permissions: "1099511627776"
   },
   {
     name: "Timeout",
-    type: 3
+    type: 3,
+    default_member_permissions: "1099511627776"
   }
 ];
 
@@ -56,7 +58,6 @@ async function registerCommands() {
 }
 
 export default async function handler(req, res) {
-
   if (req.method !== "POST") {
     return res.status(405).end();
   }
@@ -88,6 +89,19 @@ export default async function handler(req, res) {
 
   if (body.type === 2) {
 
+    const perms = BigInt(body.member.permissions);
+    const MODERATE_MEMBERS = 1n << 40n;
+
+    if (body.data.name === "Timeout" && !(perms & MODERATE_MEMBERS)) {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          flags: 64,
+          content: "You do not have permission to use this command."
+        }
+      });
+    }
+
     const name = body.data.name;
 
     if (name === "help") {
@@ -104,7 +118,6 @@ export default async function handler(req, res) {
     }
 
     if (name === "status") {
-
       const interactionTime = Number((BigInt(body.id) >> 22n) + 1420070400000n);
       const latency = Date.now() - interactionTime;
 
@@ -120,7 +133,6 @@ export default async function handler(req, res) {
     }
 
     if (name === "userinfo") {
-
       const userId = body.data.options[0].value;
 
       return res.status(200).json({
@@ -135,7 +147,6 @@ export default async function handler(req, res) {
     }
 
     if (name === "Timeout") {
-
       const guildId = body.guild_id;
 
       let targetUserId;
@@ -170,7 +181,6 @@ export default async function handler(req, res) {
         }
       });
     }
-
   }
 
   return res.status(200).json({
