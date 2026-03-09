@@ -13,7 +13,7 @@ const PUBLIC_KEY = process.env.PUBLIC_KEY;
 const commands = [
   {
     name: "help",
-    description: "Get information about sushi"
+    description: "Get information about bot"
   },
   {
     name: "status",
