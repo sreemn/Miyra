@@ -1,14 +1,10 @@
 import nacl from "tweetnacl";
 import { MongoClient } from "mongodb";
+import fetch from "node-fetch";
 
-export const config = {
-  api: {
-    bodyParser: false
-  }
-};
+export const config = { api: { bodyParser: false } };
 
 const APP_ID = process.env.APP_ID;
-const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -61,351 +57,416 @@ async function updateUser(userId, data) {
   );
 }
 
+async function reply(interaction, data) {
+  const url =
+    `https://discord.com/api/v10/webhooks/${APP_ID}/${interaction.token}`;
+
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+}
+
 export default async function handler(req, res) {
 
-  if (req.method !== "POST") {
+  if (req.method !== "POST")
     return res.status(405).end();
-  }
 
   const signature = req.headers["x-signature-ed25519"];
   const timestamp = req.headers["x-signature-timestamp"];
 
   const rawBody = await new Promise(resolve => {
     let data = "";
-    req.on("data", chunk => data += chunk);
+    req.on("data", c => data += c);
     req.on("end", () => resolve(data));
   });
 
-  const isVerified = nacl.sign.detached.verify(
+  const verified = nacl.sign.detached.verify(
     Buffer.from(timestamp + rawBody),
     Buffer.from(signature, "hex"),
     Buffer.from(PUBLIC_KEY, "hex")
   );
 
-  if (!isVerified) {
-    return res.status(401).send("Invalid request signature");
-  }
+  if (!verified)
+    return res.status(401).end("bad signature");
 
   const body = JSON.parse(rawBody);
 
-  if (body.type === 1) {
+  if (body.type === 1)
     return res.status(200).json({ type: 1 });
-  }
 
   if (body.type === 2) {
 
     const name = body.data.name;
     const userId = body.member.user.id;
 
-    if (name === "help") {
-      return res.status(200).json({
-        type: 4,
-        data: { content: "Commands: /daily /work /rob /coinflip /shop /inventory" }
-      });
-    }
+    /* instant ACK */
+    res.status(200).json({ type: 5 });
 
-    if (name === "status") {
-      return res.status(200).json({
-        type: 4,
-        data: { content: "Bot is online." }
-      });
-    }
+    try {
 
-    if (name === "userinfo") {
-      const uid = body.data.options[0].value;
-      return res.status(200).json({
-        type: 4,
-        data: { content: `User: <@${uid}>` }
-      });
-    }
+      /* HELP */
 
-    if (name === "cowoncy") {
+      if (name === "help") {
 
-      const user = await getUser(userId);
+        await reply(body, {
+          flags: 64,
+          embeds: [{
+            color: 0xe7a67c,
+            description:
+              "You can find a list of commands here: https://sushibot.co/commands\n" +
+              "Join the server if you still have questions: https://discord.gg/QkvahZ4yW3\n\n" +
+              "The privacy policy can be found here: https://sushibot.co/privacy"
+          }]
+        });
 
-      return res.status(200).json({
-        type: 4,
-        data: {
+        return;
+      }
+
+      /* STATUS */
+
+      if (name === "status") {
+
+        await reply(body, {
+          content: "Bot is online."
+        });
+
+        return;
+      }
+
+      /* USERINFO */
+
+      if (name === "userinfo") {
+
+        const uid = body.data.options?.[0]?.value;
+
+        await reply(body, {
+          content: `User: <@${uid}>`
+        });
+
+        return;
+      }
+
+      /* BALANCE */
+
+      if (name === "cowoncy") {
+
+        const user = await getUser(userId);
+
+        await reply(body, {
           content: `Coins: ${user.coins}\nBank: ${user.bank}`
+        });
+
+        return;
+      }
+
+      /* DAILY */
+
+      if (name === "daily") {
+
+        const user = await getUser(userId);
+        const now = Date.now();
+
+        if (now - user.lastDaily < 86400000) {
+
+          await reply(body, { content: "Daily already claimed." });
+          return;
         }
-      });
 
-    }
-
-    if (name === "daily") {
-
-      const user = await getUser(userId);
-      const now = Date.now();
-
-      if (now - user.lastDaily < 86400000) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Daily already claimed." }
+        await updateUser(userId, {
+          coins: user.coins + 500,
+          lastDaily: now
         });
+
+        await reply(body, { content: "You claimed 500 coins." });
+
+        return;
       }
 
-      await updateUser(userId, {
-        coins: user.coins + 500,
-        lastDaily: now
-      });
+      /* WORK */
 
-      return res.status(200).json({
-        type: 4,
-        data: { content: "You claimed 500 coins." }
-      });
+      if (name === "work") {
 
-    }
+        const user = await getUser(userId);
+        const now = Date.now();
 
-    if (name === "work") {
+        if (now - user.lastWork < 3600000) {
 
-      const user = await getUser(userId);
-      const now = Date.now();
-
-      if (now - user.lastWork < 3600000) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Work cooldown active." }
-        });
-      }
-
-      const reward = Math.floor(Math.random() * 200) + 100;
-
-      await updateUser(userId, {
-        coins: user.coins + reward,
-        lastWork: now
-      });
-
-      return res.status(200).json({
-        type: 4,
-        data: { content: `You earned ${reward} coins.` }
-      });
-
-    }
-
-    if (name === "coinflip") {
-
-      const bet = body.data.options[0].value;
-      const user = await getUser(userId);
-
-      if (user.coins < bet) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Not enough coins." }
-        });
-      }
-
-      const win = Math.random() < 0.5;
-      const coins = win ? user.coins + bet : user.coins - bet;
-
-      await updateUser(userId, { coins });
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          content: win ? `You won ${bet}` : `You lost ${bet}`
+          await reply(body, { content: "Work cooldown active." });
+          return;
         }
-      });
 
-    }
+        const reward =
+          Math.floor(Math.random() * 200) + 100;
 
-    if (name === "shop") {
-      return res.status(200).json({
-        type: 4,
-        data: {
-          content: "<a:Eagle:1480636722021924884> Shield — 2000 coins (6h protection)"
+        await updateUser(userId, {
+          coins: user.coins + reward,
+          lastWork: now
+        });
+
+        await reply(body, {
+          content: `You earned ${reward} coins.`
+        });
+
+        return;
+      }
+
+      /* COINFLIP */
+
+      if (name === "coinflip") {
+
+        const bet = body.data.options?.[0]?.value;
+        const user = await getUser(userId);
+
+        if (user.coins < bet) {
+
+          await reply(body, { content: "Not enough coins." });
+          return;
         }
-      });
-    }
 
-    if (name === "buy") {
+        const win = Math.random() < 0.5;
 
-      const item = body.data.options[0].value.toLowerCase();
+        const coins =
+          win ? user.coins + bet : user.coins - bet;
 
-      if (item !== "shield") {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Item not found." }
+        await updateUser(userId, { coins });
+
+        await reply(body, {
+          content:
+            win ? `You won ${bet}` : `You lost ${bet}`
         });
+
+        return;
       }
 
-      const user = await getUser(userId);
+      /* SHOP */
 
-      if (user.coins < 2000) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Not enough coins." }
+      if (name === "shop") {
+
+        await reply(body, {
+          content:
+            "<a:Eagle:1480636722021924884> Shield — 2000 coins (6h protection)"
         });
+
+        return;
       }
 
-      user.inventory.push("Shield");
+      /* BUY */
 
-      await updateUser(userId, {
-        coins: user.coins - 2000,
-        inventory: user.inventory
-      });
+      if (name === "buy") {
 
-      return res.status(200).json({
-        type: 4,
-        data: { content: "Shield purchased." }
-      });
+        const item =
+          body.data.options?.[0]?.value?.toLowerCase();
 
-    }
+        const user = await getUser(userId);
 
-    if (name === "inventory") {
+        if (item !== "shield") {
 
-      const user = await getUser(userId);
-
-      if (!user.inventory.length) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Inventory empty." }
-        });
-      }
-
-      const items = user.inventory.join("\n");
-
-      return res.status(200).json({
-        type: 4,
-        data: { content: items }
-      });
-
-    }
-
-    if (name === "useshield") {
-
-      const user = await getUser(userId);
-      const index = user.inventory.indexOf("Shield");
-
-      if (index === -1) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "No shield." }
-        });
-      }
-
-      const now = Date.now();
-
-      if (now - user.lastShieldUse < 86400000) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Shield usable once per 24h." }
-        });
-      }
-
-      user.inventory.splice(index, 1);
-
-      await updateUser(userId, {
-        inventory: user.inventory,
-        shieldUntil: now + 21600000,
-        lastShieldUse: now
-      });
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          content: "<a:Eagle:1480636722021924884> Shield activated for 6 hours."
+          await reply(body, { content: "Item not found." });
+          return;
         }
-      });
 
-    }
+        if (user.coins < 2000) {
 
-    if (name === "rob") {
+          await reply(body, { content: "Not enough coins." });
+          return;
+        }
 
-      const target = body.data.options[0].value;
+        user.inventory.push("Shield");
 
-      if (target === OWNER_ID) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "You cannot rob the bot owner." }
+        await updateUser(userId, {
+          coins: user.coins - 2000,
+          inventory: user.inventory
         });
+
+        await reply(body, { content: "Shield purchased." });
+
+        return;
       }
 
-      const robber = await getUser(userId);
-      const victim = await getUser(target);
+      /* INVENTORY */
 
-      if (victim.shieldUntil > Date.now()) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "<a:Eagle:1480636722021924884> Target protected." }
+      if (name === "inventory") {
+
+        const user = await getUser(userId);
+
+        if (!user.inventory.length) {
+
+          await reply(body, { content: "Inventory empty." });
+          return;
+        }
+
+        await reply(body, {
+          content: user.inventory.join("\n")
         });
+
+        return;
       }
 
-      const success = Math.random() < 0.5;
+      /* USE SHIELD */
 
-      if (success) {
+      if (name === "useshield") {
 
-        const steal = Math.floor(victim.coins * 0.25);
+        if (userId === OWNER_ID) {
 
-        await updateUser(userId, { coins: robber.coins + steal });
-        await updateUser(target, { coins: victim.coins - steal });
+          await reply(body, {
+            content:
+              "You already have shield activated for ♾️ days"
+          });
 
-        return res.status(200).json({
-          type: 4,
-          data: { content: `You stole ${steal} coins.` }
+          return;
+        }
+
+        const user = await getUser(userId);
+        const index = user.inventory.indexOf("Shield");
+
+        if (index === -1) {
+
+          await reply(body, { content: "No shield." });
+          return;
+        }
+
+        const now = Date.now();
+
+        if (now - user.lastShieldUse < 86400000) {
+
+          await reply(body, {
+            content: "Shield usable once per 24h."
+          });
+
+          return;
+        }
+
+        user.inventory.splice(index, 1);
+
+        await updateUser(userId, {
+          inventory: user.inventory,
+          shieldUntil: now + 21600000,
+          lastShieldUse: now
         });
 
-      } else {
+        await reply(body, {
+          content:
+            "<a:Eagle:1480636722021924884> Shield activated for 6 hours."
+        });
 
-        const fine = Math.floor(robber.coins * 0.1);
+        return;
+      }
 
-        await updateUser(userId, { coins: robber.coins - fine });
+      /* ROB */
 
-        return res.status(200).json({
-          type: 4,
-          data: { content: `Rob failed. Lost ${fine}` }
+      if (name === "rob") {
+
+        const target = body.data.options?.[0]?.value;
+
+        const robber = await getUser(userId);
+        const victim = await getUser(target);
+
+        if (victim.shieldUntil > Date.now()) {
+
+          await reply(body, {
+            content:
+              "<a:Eagle:1480636722021924884> Target protected."
+          });
+
+          return;
+        }
+
+        const success = Math.random() < 0.5;
+
+        if (success) {
+
+          const steal =
+            Math.floor(victim.coins * 0.25);
+
+          await updateUser(userId, {
+            coins: robber.coins + steal
+          });
+
+          await updateUser(target, {
+            coins: victim.coins - steal
+          });
+
+          await reply(body, {
+            content: `You stole ${steal} coins.`
+          });
+
+        } else {
+
+          const fine =
+            Math.floor(robber.coins * 0.1);
+
+          await updateUser(userId, {
+            coins: robber.coins - fine
+          });
+
+          await reply(body, {
+            content: `Rob failed. Lost ${fine}`
+          });
+
+        }
+
+        return;
+      }
+
+      /* LEADERBOARD */
+
+      if (name === "leaderboard") {
+
+        const db = await getDB();
+        const users = db.collection("users");
+
+        const top =
+          await users
+            .find({})
+            .sort({ coins: -1 })
+            .limit(10)
+            .toArray();
+
+        let text = "";
+
+        top.forEach((u, i) => {
+          text += `#${i + 1} <@${u.userId}> — ${u.coins}\n`;
+        });
+
+        await reply(body, {
+          content: text || "No players yet."
+        });
+
+        return;
+      }
+
+      /* OWNER COMMAND */
+
+      if (name === "beone") {
+
+        if (userId !== OWNER_ID) {
+
+          await reply(body, { content: "Restricted." });
+          return;
+        }
+
+        await updateUser(userId, {
+          coins: 999999999
+        });
+
+        await reply(body, {
+          content: "You are now #1."
         });
 
       }
 
-    }
+    } catch (err) {
 
-    if (name === "leaderboard") {
+      console.error(err);
 
-      const db = await getDB();
-      const users = db.collection("users");
-
-      const top = await users
-        .find({})
-        .sort({ coins: -1 })
-        .limit(10)
-        .toArray();
-
-      let text = "";
-
-      top.forEach((u, i) => {
-        text += `#${i + 1} <@${u.userId}> — ${u.coins}\n`;
-      });
-
-      return res.status(200).json({
-        type: 4,
-        data: { content: text }
-      });
-
-    }
-
-    if (name === "beone") {
-
-      if (userId !== OWNER_ID) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Restricted." }
-        });
-      }
-
-      await updateUser(userId, { coins: 999999999 });
-
-      return res.status(200).json({
-        type: 4,
-        data: { content: "You are now #1." }
+      await reply(body, {
+        content: "Command error."
       });
 
     }
 
   }
-
-  return res.status(200).json({
-    type: 4,
-    data: { content: "Unknown command." }
-  });
 
 }
