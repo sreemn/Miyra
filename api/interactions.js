@@ -195,7 +195,11 @@ export default async function handler(req, res) {
                   type: 2,
                   style: 2,
                   label: "Hug Back",
-                  custom_id: `hugback_${targetId}_${authorId}`
+                  custom_id: `hugback_${targetId}_${authorId}`,
+                  emoji: {
+                    name: "Heart",
+                    id: "1396919562645143583"
+                  }
                 }
               ]
             }
@@ -253,7 +257,11 @@ export default async function handler(req, res) {
                   style: 2,
                   label: "Hug Back",
                   custom_id: "used",
-                  disabled: true
+                  disabled: true,
+                  emoji: {
+                    name: "Heart",
+                    id: "1396919562645143583"
+                  }
                 }
               ]
             }
