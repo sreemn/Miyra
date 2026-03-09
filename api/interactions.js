@@ -33,7 +33,7 @@ const commands = [
   },
   {
     name: "hug",
-    description: "Hug a friend",
+    description: "Send a warm hug to another user",
     options: [
       {
         name: "user",
@@ -96,6 +96,7 @@ export default async function handler(req, res) {
     const options = body.data.options || [];
 
     if (name === "help") {
+
       return res.status(200).json({
         type: 4,
         data: {
@@ -111,6 +112,7 @@ export default async function handler(req, res) {
           ]
         }
       });
+
     }
 
     if (name === "status") {
@@ -130,6 +132,7 @@ export default async function handler(req, res) {
           ]
         }
       });
+
     }
 
     if (name === "userinfo") {
@@ -181,6 +184,7 @@ export default async function handler(req, res) {
           ]
         }
       });
+
     }
 
     if (name === "hug") {
@@ -190,22 +194,24 @@ export default async function handler(req, res) {
         const response = await fetch("https://api.waifu.pics/sfw/hug");
         const json = await response.json();
 
-        const userId = options[0].value;
-        const target = body.data.resolved.users[userId];
-        const author = body.member?.user || body.user;
+        const targetId = options[0].value;
+        const authorId = body.member?.user?.id || body.user.id;
 
         return res.status(200).json({
           type: 4,
           data: {
+            content: `<@${authorId}> hugged <@${targetId}>`,
             embeds: [
               {
                 color: 0xff7fb0,
-                description: `**${author.username} hugged ${target.username}**`,
                 image: {
                   url: json.url
                 }
               }
-            ]
+            ],
+            allowed_mentions: {
+              users: [authorId, targetId]
+            }
           }
         });
 
@@ -218,8 +224,11 @@ export default async function handler(req, res) {
             flags: 64
           }
         });
+
       }
+
     }
+
   }
 
   return res.status(200).json({
@@ -229,4 +238,5 @@ export default async function handler(req, res) {
       flags: 64
     }
   });
+
 }
