@@ -33,8 +33,17 @@ const commands = [
   },
   {
     name: "hug",
-    description: "Send a random hug gif"
-  }
+    description: "Hug a friend",
+    type: 1,
+    options: [
+      {
+        name: "user",
+        description: "User to hug",
+        type: 6,
+        required: true
+      }
+    ]
+  },
 ];
 
 async function registerCommands() {
@@ -170,38 +179,57 @@ export default async function handler(req, res) {
     }
 
     if (name === "hug") {
-      try {
 
-        const response = await fetch("https://api.waifu.pics/sfw/hug");
-        const json = await response.json();
+  const userId = options[0].value;
+  const target = body.data.resolved.users[userId];
+  const author = body.member?.user || body.user;
 
-        return res.status(200).json({
-          type: 4,
-          data: {
-            embeds: [
+  try {
+
+    const response = await fetch("https://api.waifu.pics/sfw/hug");
+    const json = await response.json();
+
+    return res.status(200).json({
+      type: 4,
+      data: {
+        embeds: [
+          {
+            color: 0xff7fb0,
+            description: `**${author.username} hugged ${target.username}**`,
+            image: {
+              url: json.url
+            }
+          }
+        ],
+        components: [
+          {
+            type: 1,
+            components: [
               {
-                color: 0xff7fb0,
-                image: {
-                  url: json.url
-                }
+                type: 2,
+                style: 5,
+                label: "Open GIF",
+                url: json.url
               }
             ]
           }
-        });
-
-      } catch (error) {
-
-        return res.status(200).json({
-          type: 4,
-          data: {
-            content: "Could not fetch a hug gif",
-            flags: 64
-          }
-        });
-
+        ]
       }
-    }
+    });
+
+  } catch (err) {
+
+    return res.status(200).json({
+      type: 4,
+      data: {
+        content: "Failed to fetch hug gif.",
+        flags: 64
+      }
+    });
+
   }
+
+}
 
   return res.status(200).json({
     type: 4,
