@@ -6,7 +6,7 @@ export const config = { api: { bodyParser: false } };
 
 const APP_ID = process.env.APP_ID;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = process.env.sushi_MONGODB_URI;
 
 const OWNER_ID = "783891446905438260";
 
