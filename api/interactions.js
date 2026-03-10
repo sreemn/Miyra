@@ -10,41 +10,6 @@ const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 
-const commands = [
-  {
-    name: "help",
-    description: "Get information about bot"
-  },
-  {
-    name: "status",
-    description: "View sushi bot status"
-  },
-  {
-    name: "userinfo",
-    description: "Show information about a user",
-    options: [
-      {
-        name: "user",
-        description: "The user to lookup",
-        type: 6,
-        required: true
-      }
-    ]
-  },
-  {
-    name: "hug",
-    description: "Send a warm hug to another user",
-    options: [
-      {
-        name: "user",
-        description: "User to hug",
-        type: 6,
-        required: true
-      }
-    ]
-  }
-];
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).end();
@@ -229,17 +194,12 @@ export default async function handler(req, res) {
         });
       }
 
-      res.status(200).json({ type: 6 });
-
       const gif = await fetch("https://api.waifu.pics/sfw/hug");
       const data = await gif.json();
 
-      await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+      return res.status(200).json({
+        type: 4,
+        data: {
           content: `<@${clickerId}> hugged <@${originalAuthorId}> back!`,
           embeds: [
             {
@@ -252,10 +212,8 @@ export default async function handler(req, res) {
           allowed_mentions: {
             users: [clickerId, originalAuthorId]
           }
-        })
+        }
       });
-
-      return;
     }
   }
 
