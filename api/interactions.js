@@ -61,71 +61,20 @@ export default async function handler(req, res) {
       });
     }
 
-    if (name === "status") {
-      const interactionTime = Number((BigInt(body.id) >> 22n) + 1420070400000n);
-      const latency = Date.now() - interactionTime;
-      const heartbeat = Math.floor(Math.random() * (135 - 115) + 115);
+    if (name === "balance") {
+      const user = body.member?.user || body.user;
+      const username = user.username;
+
+      const balance = 0;
 
       return res.status(200).json({
         type: 4,
         data: {
+          flags: 64,
           embeds: [
             {
-              color: 0x6ed683,
-              description: `Heartbeat: \`${heartbeat}ms\`\nLatency: \`${latency}ms\``
-            }
-          ]
-        }
-      });
-    }
-
-    if (name === "userinfo") {
-      const userId = options[0].value;
-      const user = body.data.resolved.users[userId];
-      const member = body.data.resolved.members?.[userId];
-
-      const createdAt = new Date(Number((BigInt(userId) >> 22n) + 1420070400000n));
-      const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-
-      const parts = createdAt.toUTCString().split(" ");
-      const formattedDate = `${parts[2]} ${parts[1]} ${parts[3]}`;
-      const formattedTime = `${parts[4]} GMT`;
-
-      const avatarUrl = user.avatar
-        ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
-        : `https://cdn.discordapp.com/embed/avatars/${Number(user.discriminator || 0) % 5}.png`;
-
-      const accountType = user.bot ? "Bot" : user.system ? "System" : "User";
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          embeds: [
-            {
-              color: 0x313338,
-              author: {
-                name: user.discriminator !== "0"
-                  ? `${user.username}#${user.discriminator}`
-                  : user.username,
-                icon_url: avatarUrl
-              },
-              fields: [
-                {
-                  name: "User ID:",
-                  value: `\`\`\`\n${userId}\n\`\`\``
-                },
-                {
-                  name: "Created at:",
-                  value: `\`\`\`\n- ${daysAgo} days ago\n- ${formattedDate}\n- ${formattedTime}\n\`\`\``
-                },
-                {
-                  name: "Account Type:",
-                  value: `\`\`\`\n${accountType}\n\`\`\``
-                }
-              ],
-              footer: !member
-                ? { text: "The user you are inspecting is not on this server." }
-                : undefined
+              color: 0xac78f3,
+              description: `${username}'s Balance: ${balance} <:Coin:1481390637755400333>`
             }
           ]
         }
