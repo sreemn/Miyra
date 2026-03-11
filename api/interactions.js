@@ -1,5 +1,4 @@
 import nacl from "tweetnacl";
-import fetch from "node-fetch";
 
 export const config = {
   api: {
@@ -10,10 +9,6 @@ export const config = {
 const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
-
-/* Added for bug reports */
-const REPORT_GUILD_ID = "1480910306606846104";
-const REPORT_CHANNEL_ID = "1481398858494902282";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -65,26 +60,25 @@ export default async function handler(req, res) {
         }
       });
     }
+if (name === "balance") {
+  const user = body.member?.user || body.user;
+  const username = user.username;
 
-    if (name === "balance") {
-      const user = body.member?.user || body.user;
-      const username = user.username;
+  const balance = 0;
 
-      const balance = 0;
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          flags: 64,
-          embeds: [
-            {
-              color: 0xac78f3,
-              description: `${username}'s Balance: ${balance} 🪙`
-            }
-          ]
+  return res.status(200).json({
+    type: 4,
+    data: {
+      flags: 64,
+      embeds: [
+        {
+          color: 0xac78f3,
+          description: `${username}'s Balance: ${balance} 🪙`
         }
-      });
+      ]
     }
+  });
+}
 
     if (name === "hug") {
       const targetId = options[0].value;
@@ -125,61 +119,6 @@ export default async function handler(req, res) {
           allowed_mentions: {
             users: [authorId, targetId]
           }
-        }
-      });
-    }
-
-    if (name === "report") {
-      return res.status(200).json({
-        type: 9,
-        data: {
-          custom_id: "bug_report_modal",
-          title: "Bug Report",
-          components: [
-            {
-              type: 1,
-              components: [
-                {
-                  type: 4,
-                  custom_id: "bug_title",
-                  label: "Bug Title",
-                  style: 1,
-                  min_length: 3,
-                  max_length: 100,
-                  required: true,
-                  placeholder: "Short title of the bug"
-                }
-              ]
-            },
-            {
-              type: 1,
-              components: [
-                {
-                  type: 4,
-                  custom_id: "bug_description",
-                  label: "Bug Description",
-                  style: 2,
-                  min_length: 10,
-                  max_length: 1000,
-                  required: true,
-                  placeholder: "Describe the bug clearly"
-                }
-              ]
-            },
-            {
-              type: 1,
-              components: [
-                {
-                  type: 4,
-                  custom_id: "bug_image",
-                  label: "Bug Image URL",
-                  style: 1,
-                  required: true,
-                  placeholder: "Paste screenshot link"
-                }
-              ]
-            }
-          ]
         }
       });
     }
@@ -238,55 +177,6 @@ export default async function handler(req, res) {
           allowed_mentions: {
             users: [clickerId, originalAuthorId]
           }
-        }
-      });
-    }
-  }
-
-  /* MODAL SUBMIT HANDLER */
-
-  if (body.type === 5) {
-    if (body.data.custom_id === "bug_report_modal") {
-
-      const user = body.member?.user || body.user;
-
-      const title = body.data.components[0].components[0].value;
-      const description = body.data.components[1].components[0].value;
-      const image = body.data.components[2].components[0].value;
-
-      const avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
-
-      const embed = {
-        color: 0xff4d4d,
-        author: {
-          name: "Bug Report",
-          icon_url: avatar
-        },
-        description:
-          `**Reported by:** <@${user.id}>\n\n` +
-          `**Bug Title:** ${title}\n\n` +
-          `**Bug Description:** ${description}`,
-        image: {
-          url: image
-        }
-      };
-
-      await fetch(`https://discord.com/api/v10/channels/${REPORT_CHANNEL_ID}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${BOT_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          embeds: [embed]
-        })
-      });
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          flags: 64,
-          content: "Your bug report has been sent to the developers."
         }
       });
     }
