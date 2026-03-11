@@ -2,26 +2,45 @@ import nacl from "tweetnacl";
 import fetch from "node-fetch";
 
 export const config = {
-  api: {
-    bodyParser: false
-  }
+  api: { bodyParser: false }
 };
 
 const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 
+async function sendFollowup(token, data) {
+  await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${token}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+}
+
+async function editOriginal(token, data) {
+  await fetch(
+    `https://discord.com/api/v10/webhooks/${APP_ID}/${token}/messages/@original`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    }
+  );
+}
+
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).end();
-  }
+  if (req.method !== "POST") return res.status(405).end();
 
   const signature = req.headers["x-signature-ed25519"];
   const timestamp = req.headers["x-signature-timestamp"];
 
   let rawBody = "";
   await new Promise((resolve) => {
-    req.on("data", chunk => rawBody += chunk);
+    req.on("data", (chunk) => (rawBody += chunk));
     req.on("end", resolve);
   });
 
@@ -44,6 +63,7 @@ export default async function handler(req, res) {
   if (body.type === 2) {
     const name = body.data.name;
     const options = body.data.options || [];
+    const token = body.token;
 
     if (name === "help") {
       return res.status(200).json({
@@ -66,8 +86,6 @@ export default async function handler(req, res) {
       const user = body.member?.user || body.user;
       const username = user.username;
 
-      const balance = 0;
-
       return res.status(200).json({
         type: 4,
         data: {
@@ -75,7 +93,7 @@ export default async function handler(req, res) {
           embeds: [
             {
               color: 0xac78f3,
-              description: `${username}'s Balance: ${balance} <a:Coin:1481390637755400333>`
+              description: `${username}'s Balance: 0 <a:Coin:1481390637755400333>`
             }
           ]
         }
@@ -86,47 +104,46 @@ export default async function handler(req, res) {
       const targetId = options[0].value;
       const authorId = body.member?.user?.id || body.user.id;
 
+      res.status(200).json({ type: 5 });
+
       const gif = await fetch("https://api.waifu.pics/sfw/hug");
       const data = await gif.json();
 
-      return res.status(200).json({
-        type: 4,
-        data: {
-          content: `<@${authorId}> hugged <@${targetId}>`,
-          embeds: [
-            {
-              color: 0xff7fb0,
-              image: {
-                url: data.url
-              }
-            }
-          ],
-          components: [
-            {
-              type: 1,
-              components: [
-                {
-                  type: 2,
-                  style: 2,
-                  label: "Hug Back",
-                  custom_id: `hugback_${targetId}_${authorId}`,
-                  emoji: {
-                    name: "Heart",
-                    id: "1396919562645143583"
-                  }
-                }
-              ]
-            }
-          ],
-          allowed_mentions: {
-            users: [authorId, targetId]
+      await editOriginal(token, {
+        content: `<@${authorId}> hugged <@${targetId}>`,
+        embeds: [
+          {
+            color: 0xff7fb0,
+            image: { url: data.url }
           }
-        }
+        ],
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 2,
+                label: "Hug Back",
+                custom_id: `hugback_${targetId}_${authorId}`,
+                emoji: {
+                  name: "Heart",
+                  id: "1396919562645143583"
+                }
+              }
+            ]
+          }
+        ],
+        allowed_mentions: { users: [authorId, targetId] }
       });
+
+      return;
     }
   }
 
   if (body.type === 3) {
+    const token = body.token;
+
     if (body.data.custom_id.startsWith("hugback_")) {
       const parts = body.data.custom_id.split("_");
       const targetId = parts[1];
@@ -143,51 +160,46 @@ export default async function handler(req, res) {
         });
       }
 
+      res.status(200).json({ type: 5 });
+
       const gif = await fetch("https://api.waifu.pics/sfw/hug");
       const data = await gif.json();
 
-      return res.status(200).json({
-        type: 7,
-        data: {
-          content: `<@${clickerId}> hugged <@${originalAuthorId}> back!`,
-          embeds: [
-            {
-              color: 0xff7fb0,
-              image: {
-                url: data.url
-              }
-            }
-          ],
-          components: [
-            {
-              type: 1,
-              components: [
-                {
-                  type: 2,
-                  style: 2,
-                  label: "Hug Back",
-                  disabled: true,
-                  custom_id: `hugback_${targetId}_${originalAuthorId}`,
-                  emoji: {
-                    name: "Heart",
-                    id: "1396919562645143583"
-                  }
-                }
-              ]
-            }
-          ],
-          allowed_mentions: {
-            users: [clickerId, originalAuthorId]
+      await editOriginal(token, {
+        content: `<@${clickerId}> hugged <@${originalAuthorId}> back!`,
+        embeds: [
+          {
+            color: 0xff7fb0,
+            image: { url: data.url }
           }
-        }
+        ],
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 2,
+                label: "Hug Back",
+                disabled: true,
+                custom_id: `hugback_${targetId}_${originalAuthorId}`,
+                emoji: {
+                  name: "Heart",
+                  id: "1396919562645143583"
+                }
+              }
+            ]
+          }
+        ],
+        allowed_mentions: { users: [clickerId, originalAuthorId] }
       });
+
+      return;
     }
   }
 
   return res.status(200).json({
     type: 4,
-    data: {
-      content: "Unknown command"
-    }
+    data: { content: "Unknown command" }
   });
 }
