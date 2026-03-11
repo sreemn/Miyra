@@ -53,8 +53,8 @@ export default async function handler(req, res) {
             {
               color: 0x3a3b40,
               description:
-                "If you're just looking for info about how the bot works, a [list of command's](https://sreeman.io/commands) or clarification about something - check the /about command.\n\n" +
-                "If that's not enough, [join our Discord server](https://discord.gg/QkvahZ4yW3) where you can find customer support for all of our bots."
+                "If you're just looking for info about how the bot works, a command list or clarification about something - check the /about command.\n\n" +
+                "If that's not enough, [join our Discord server](https://discord.gg/QkvahZ4yW3) where you can find announcements and customer support for all of our bots."
             }
           ]
         }
