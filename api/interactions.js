@@ -397,59 +397,47 @@ export default async function handler(req, res) {
       });
     }
 
-    if (name === "leaderboard") {
-      const db = await getDB();
-      const usersCollection = db.collection("users");
+if (name === "leaderboard") {
+  const db = await getDB();
+  const usersCollection = db.collection("users");
 
-      const users = await usersCollection
-        .find({ guildId })
-        .sort({ balance: -1 })
-        .limit(25)
-        .toArray();
+  const topUsers = await usersCollection
+    .find({ guildId })
+    .sort({ balance: -1 })
+    .limit(10)
+    .toArray();
 
-      let rows = "";
-      let position = 1;
+  let rows = "";
 
-      for (const u of users) {
-        const r = await fetch(
-          `https://discord.com/api/v10/guilds/${guildId}/members/${u.userId}`,
-          { headers: { Authorization: `Bot ${BOT_TOKEN}` } }
-        );
+  for (let i = 0; i < topUsers.length; i++) {
+    const u = topUsers[i];
+    rows += `${i + 1}. <@${u.userId}> - Coins ${u.balance.toLocaleString()}\n`;
+  }
 
-        if (r.status !== 200) {
-          await usersCollection.deleteOne({ guildId, userId: u.userId });
-          continue;
+  if (!rows) rows = "No players yet.";
+
+  const currentUser = await getUser(userId, username, guildId);
+
+  const rank =
+    (await usersCollection.countDocuments({
+      guildId,
+      balance: { $gt: currentUser.balance }
+    })) + 1;
+
+  return res.status(200).json({
+    type: 4,
+    data: {
+      embeds: [
+        {
+          color: 0x3a3b40,
+          title: "Leaderboard",
+          description:
+            `${rows}\n-# Congratulations! You are currently ranked **#${rank}**!`
         }
-
-        rows += `${position}. <@${u.userId}> - Coins ${u.balance.toLocaleString()}\n`;
-
-        if (position === 10) break;
-
-        position++;
-      }
-
-      const currentUser = await getUser(userId, username, guildId);
-
-      const rank =
-        (await usersCollection.countDocuments({
-          guildId,
-          balance: { $gt: currentUser.balance }
-        })) + 1;
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          embeds: [
-            {
-              color: 0x3a3b40,
-              title: "Leaderboard",
-              description:
-                `${rows}\n-# Congratulations! You are currently ranked **#${rank}**!`
-            }
-          ]
-        }
-      });
+      ]
     }
+  });
+}
 
     return res.status(200).json({ type: 4, data: { content: "Unknown command" } });
   }
