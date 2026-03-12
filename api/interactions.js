@@ -1,5 +1,4 @@
 import nacl from "tweetnacl";
-import fetch from "node-fetch";
 
 export const config = {
   api: {
@@ -11,22 +10,6 @@ const APP_ID = process.env.APP_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 
-let botAvatar = null;
-
-async function getBotAvatar() {
-  if (botAvatar) return botAvatar;
-
-  const res = await fetch("https://discord.com/api/v10/users/@me", {
-    headers: {
-      Authorization: `Bot ${BOT_TOKEN}`
-    }
-  });
-
-  const data = await res.json();
-  botAvatar = `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`;
-  return botAvatar;
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).end();
@@ -36,7 +19,6 @@ export default async function handler(req, res) {
   const timestamp = req.headers["x-signature-timestamp"];
 
   let rawBody = "";
-
   await new Promise((resolve) => {
     req.on("data", chunk => (rawBody += chunk));
     req.on("end", resolve);
@@ -81,6 +63,7 @@ export default async function handler(req, res) {
     if (name === "balance") {
       const user = body.member?.user || body.user;
       const username = user.username;
+
       const balance = 0;
 
       return res.status(200).json({
@@ -98,8 +81,6 @@ export default async function handler(req, res) {
     }
 
     if (name === "about") {
-      const avatar = await getBotAvatar();
-
       return res.status(200).json({
         type: 4,
         data: {
@@ -113,8 +94,7 @@ export default async function handler(req, res) {
                 "[Invite The Bot](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands) | " +
                 "[Support us on ko-fi](https://ko-fi.com/sremn)",
               footer: {
-                text: "This bot was made by sremn",
-                icon_url: avatar
+                text: "This bot was made by sremn"
               }
             }
           ]
