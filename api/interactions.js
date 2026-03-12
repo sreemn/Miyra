@@ -47,7 +47,6 @@ async function safeBalanceUpdate(userId, amount) {
   if (!user) return;
 
   const newBalance = user.balance + amount;
-
   if (newBalance < 0) return;
   if (newBalance > 100000000) return;
 
@@ -56,9 +55,11 @@ async function safeBalanceUpdate(userId, amount) {
 
 async function setField(userId, field, value) {
   const db = await getDB();
-  await db
-    .collection("users")
-    .updateOne({ userId }, { $set: { [field]: value } }, { upsert: true });
+  await db.collection("users").updateOne(
+    { userId },
+    { $set: { [field]: value } },
+    { upsert: true }
+  );
 }
 
 function cooldownLeft(lastUsed, cooldownMs) {
@@ -107,10 +108,8 @@ function rollMine() {
 
 function doGamble() {
   const roll = rand(1, 100);
-
   if (roll <= 10) return { result: "jackpot", multiplier: 5 };
   if (roll <= 45) return { result: "win", multiplier: 2 };
-
   return { result: "lose", multiplier: 0 };
 }
 
@@ -121,7 +120,6 @@ export default async function handler(req, res) {
   const timestamp = req.headers["x-signature-timestamp"];
 
   let rawBody = "";
-
   await new Promise(resolve => {
     req.on("data", chunk => (rawBody += chunk));
     req.on("end", resolve);
@@ -151,14 +149,12 @@ export default async function handler(req, res) {
         type: 4,
         data: {
           flags: 64,
-          embeds: [
-            {
-              color: 0x3a3b40,
-              description:
-                "If you're just looking for info about how the bot works, a command list or clarification about something — check the **/about** command.\n\n" +
-                "If that's not enough, join our Discord server for announcements and support."
-            }
-          ]
+          embeds: [{
+            color: 0x3a3b40,
+            description:
+              "If you're just looking for info about how the bot works, a command list or clarification about something — check the **/about** command.\n\n" +
+              "If that's not enough, join our Discord server for announcements and support."
+          }]
         }
       });
     }
@@ -172,9 +168,13 @@ export default async function handler(req, res) {
               color: 0x3a3b40,
               title: "How to Play",
               description:
-                "Use commands like `/daily`, `/mine`, `/gamble`, and `/balance` to play the economy game.\n\n" +
-                "[Support](https://discord.gg/4rv6P8xF8U) | " +
-                "[Invite](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands)"
+                "To start playing, an admin must use `/settings` and pick a name for your community. Then just take turns clicking the 🧩 button to keep playing!\n\n" +
+                "[Get Support](https://discord.gg/4rv6P8xF8U) | " +
+                "[Invite The Bot](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands) | " +
+                "[Support us on ko-fi](https://ko-fi.com/sremn)",
+              footer: {
+                text: "This bot was made by sremn"
+              }
             }
           ]
         }
@@ -188,19 +188,16 @@ export default async function handler(req, res) {
         type: 4,
         data: {
           flags: 64,
-          embeds: [
-            {
-              color: 0xac78f3,
-              description: `${username}'s Balance: ${user.balance.toLocaleString()} 🪙`
-            }
-          ]
+          embeds: [{
+            color: 0xac78f3,
+            description: `${username}'s Balance: ${user.balance.toLocaleString()} 🪙`
+          }]
         }
       });
     }
 
     if (name === "daily") {
       const user = await getUser(userId, username);
-
       const cooldown = 86400000;
       const left = cooldownLeft(user.lastDaily, cooldown);
 
@@ -209,39 +206,33 @@ export default async function handler(req, res) {
           type: 4,
           data: {
             flags: 64,
-            embeds: [
-              {
-                color: 0xff4444,
-                title: "⏳ Daily Already Claimed",
-                description: `Come back in **${formatTime(left)}**`
-              }
-            ]
+            embeds: [{
+              color: 0xff4444,
+              title: "⏳ Daily Already Claimed",
+              description: `Come back in **${formatTime(left)}**`
+            }]
           }
         });
       }
 
       const reward = rand(150, 350);
-
       await safeBalanceUpdate(userId, reward);
       await setField(userId, "lastDaily", new Date());
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0x57f287,
-              title: "📅 Daily Reward",
-              description: `You received **${reward} 🪙**`
-            }
-          ]
+          embeds: [{
+            color: 0x57f287,
+            title: "📅 Daily Reward",
+            description: `You received **${reward} 🪙**`
+          }]
         }
       });
     }
 
     if (name === "mine") {
       const user = await getUser(userId, username);
-
       const left = cooldownLeft(user.lastMine, MINE_COOLDOWN);
 
       if (left > 0) {
@@ -249,32 +240,27 @@ export default async function handler(req, res) {
           type: 4,
           data: {
             flags: 64,
-            embeds: [
-              {
-                color: 0xff4444,
-                title: "⏳ Pickaxe cooling down",
-                description: `Mine again in **${formatTime(left)}**`
-              }
-            ]
+            embeds: [{
+              color: 0xff4444,
+              title: "⏳ Pickaxe cooling down",
+              description: `Mine again in **${formatTime(left)}**`
+            }]
           }
         });
       }
 
       const gem = rollMine();
-
       await safeBalanceUpdate(userId, gem.coins);
       await setField(userId, "lastMine", new Date());
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0xfaa61a,
-              title: "⛏️ Mining Results",
-              description: `You found **${gem.name}** worth **${gem.coins} 🪙**`
-            }
-          ]
+          embeds: [{
+            color: 0xfaa61a,
+            title: "⛏️ Mining Results",
+            description: `You found **${gem.name}** worth **${gem.coins} 🪙**`
+          }]
         }
       });
     }
@@ -288,25 +274,18 @@ export default async function handler(req, res) {
       if (!bet || bet <= 0) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [{ color: 0xff4444, description: "Invalid bet amount" }]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid bet amount" }] }
         });
       }
 
       if (bet > user.balance) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [{ color: 0xff4444, description: "Not enough coins" }]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }
         });
       }
 
       const { result, multiplier } = doGamble();
-
       const winnings = bet * multiplier;
       const net = winnings - bet;
 
@@ -330,9 +309,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         type: 4,
-        data: {
-          embeds: [{ color, title, description: desc }]
-        }
+        data: { embeds: [{ color, title, description: desc }] }
       });
     }
 
@@ -345,10 +322,7 @@ export default async function handler(req, res) {
       if (!targetOption || !amountOption) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [{ color: 0xff4444, description: "Invalid command usage" }]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid command usage" }] }
         });
       }
 
@@ -358,36 +332,21 @@ export default async function handler(req, res) {
       if (amount <= 0) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [
-              { color: 0xff4444, description: "Amount must be greater than 0" }
-            ]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Amount must be greater than 0" }] }
         });
       }
 
       if (targetId === userId) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [
-              { color: 0xff4444, description: "You cannot give coins to yourself" }
-            ]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You cannot give coins to yourself" }] }
         });
       }
 
       if (amount > user.balance) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [
-              { color: 0xff4444, description: "You don't have enough coins" }
-            ]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You don't have enough coins" }] }
         });
       }
 
@@ -397,54 +356,41 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0x57f287,
-              title: "💸 Coins Sent",
-              description: `You gave **${amount.toLocaleString()} 🪙** to <@${targetId}>`
-            }
-          ]
+          embeds: [{
+            color: 0x57f287,
+            title: "💸 Coins Sent",
+            description: `You gave **${amount.toLocaleString()} 🪙** to <@${targetId}>`
+          }]
         }
       });
     }
 
     if (name === "leaderboard") {
       const db = await getDB();
+      const top = await db.collection("users").find({}).sort({ balance: -1 }).limit(10).toArray();
 
-      const top = await db
-        .collection("users")
-        .find({})
-        .sort({ balance: -1 })
-        .limit(10)
-        .toArray();
-
-      const medals = ["🥇", "🥈", "🥉"];
+      const icons = ["🥇", "🥈", "🥉", "`#4`", "`#5`", "`#6`", "`#7`", "`#8`", "`#9`", "`#10`"];
 
       let rows = "";
 
       for (let i = 0; i < 10; i++) {
         const user = top[i];
-        const rank = medals[i] || `#${i + 1}`;
 
         if (user) {
-          const name = user.username.padEnd(15, " ");
-          const coins = user.balance.toLocaleString();
-          rows += `${rank} ${name} ${coins} 🪙\n`;
+          rows += `${icons[i]} - ${user.balance.toLocaleString()} 🪙 <@${user.userId}>\n`;
         } else {
-          rows += `${rank}\n`;
+          rows += `${icons[i]}\n`;
         }
       }
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0x2b2d31,
-              title: "🏆 Leaderboard",
-              description: "```" + rows.trim() + "```"
-            }
-          ]
+          embeds: [{
+            color: 0x2b2d31,
+            title: "Most Experienced Gardeners",
+            description: rows.trim()
+          }]
         }
       });
     }
