@@ -1,16 +1,15 @@
 import nacl from "tweetnacl";
 import { MongoClient } from "mongodb";
-import fetch from "node-fetch";
 
 export const config = { api: { bodyParser: false } };
 
 const APP_ID = process.env.APP_ID;
-const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 const MONGODB_URI = process.env.sushi_MONGODB_URI;
 
 let cachedClient = null;
 let indexesEnsured = false;
+const commandCooldown = new Map();
 
 async function getDB() {
   if (cachedClient) return cachedClient.db("discordbot");
@@ -24,21 +23,19 @@ async function ensureIndexes() {
   if (indexesEnsured) return;
   const db = await getDB();
   const users = db.collection("users");
-  await users.createIndex({ guildId: 1, userId: 1 }, { unique: true });
-  await users.createIndex({ guildId: 1, balance: -1 });
+  await users.createIndex({ userId: 1 }, { unique: true });
+  await users.createIndex({ balance: -1 });
   indexesEnsured = true;
 }
 
-async function getUser(userId, username, guildId) {
+async function getUser(userId, username) {
   const db = await getDB();
   const users = db.collection("users");
-
-  let user = await users.findOne({ userId, guildId });
+  let user = await users.findOne({ userId });
 
   if (!user) {
     user = {
       userId,
-      guildId,
       username,
       balance: 100,
       lastDaily: null,
@@ -49,32 +46,55 @@ async function getUser(userId, username, guildId) {
     };
     await users.insertOne(user);
   } else if (user.username !== username) {
-    await users.updateOne({ userId, guildId }, { $set: { username } });
+    await users.updateOne({ userId }, { $set: { username } });
   }
 
   return user;
 }
 
-async function safeBalanceUpdate(userId, guildId, amount) {
+async function updateBalanceAtomic(userId, amount) {
   const db = await getDB();
   const users = db.collection("users");
-  const user = await users.findOne({ userId, guildId });
-  if (!user) return;
 
-  const newBalance = user.balance + amount;
-  if (newBalance < 0) return;
-  if (newBalance > 1000000000) return;
+  const result = await users.findOneAndUpdate(
+    {
+      userId,
+      balance: { $gte: amount < 0 ? Math.abs(amount) : 0 }
+    },
+    { $inc: { balance: amount } },
+    { returnDocument: "after" }
+  );
 
-  await users.updateOne({ userId, guildId }, { $set: { balance: newBalance } });
+  return result.value;
 }
 
-async function setField(userId, guildId, field, value) {
+async function transferCoins(fromId, toId, amount) {
   const db = await getDB();
-  await db.collection("users").updateOne(
-    { userId, guildId },
-    { $set: { [field]: value } },
-    { upsert: true }
-  );
+  const users = db.collection("users");
+  const client = cachedClient;
+  const session = client.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      const sender = await users.findOne({ userId: fromId }, { session });
+
+      if (!sender || sender.balance < amount) throw new Error("balance");
+
+      await users.updateOne(
+        { userId: fromId },
+        { $inc: { balance: -amount } },
+        { session }
+      );
+
+      await users.updateOne(
+        { userId: toId },
+        { $inc: { balance: amount } },
+        { session }
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
 }
 
 function cooldownLeft(lastUsed, cooldownMs) {
@@ -95,6 +115,28 @@ function formatTime(ms) {
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function validateAmount(amount) {
+  if (!Number.isInteger(amount)) return false;
+  if (amount <= 0) return false;
+  if (amount > 1000000) return false;
+  return true;
+}
+
+function checkCooldown(userId, cmd, seconds) {
+  const key = userId + ":" + cmd;
+  const now = Date.now();
+
+  if (commandCooldown.has(key)) {
+    const diff = now - commandCooldown.get(key);
+    if (diff < seconds * 1000) {
+      return seconds - Math.floor(diff / 1000);
+    }
+  }
+
+  commandCooldown.set(key, now);
+  return 0;
 }
 
 const MINE_COOLDOWN = 15000;
@@ -153,27 +195,9 @@ export default async function handler(req, res) {
 
   if (body.type === 2) {
     const name = body.data.name;
-    const guildId = body.guild_id;
     const discordUser = body.member?.user || body.user;
     const userId = discordUser.id;
     const username = discordUser.username;
-
-    if (name === "about") {
-      return res.status(200).json({
-        type: 4,
-        data: {
-          embeds: [
-            {
-              color: 0x3a3b40,
-              title: "How to Play",
-              description:
-                "Use /daily /mine /gamble /give /balance /leaderboard",
-              footer: { text: "This bot was made by sremn" }
-            }
-          ]
-        }
-      });
-    }
 
     if (name === "help") {
       return res.status(200).json({
@@ -184,7 +208,34 @@ export default async function handler(req, res) {
             {
               color: 0x3a3b40,
               description:
-                "If you need help with the bot check **/about**"
+                "If you're just looking for info about how the bot works, a command list or clarification about something — check the **/about** command.\n\n" +
+                "If that's not enough, join our Discord server for announcements and support."
+            }
+          ]
+        }
+      });
+    }
+
+    if (name === "about") {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          embeds: [
+            {
+              color: 0x3a3b40,
+              title: "How to Play",
+              description:
+                "To start playing, use the commands below.\n\n" +
+                "`/daily` — Claim daily coins\n" +
+                "`/mine` — Mine random coins\n" +
+                "`/gamble <amount>` — Gamble coins\n" +
+                "`/give <user> <amount>` — Send coins\n" +
+                "`/balance` — Check balance\n" +
+                "`/leaderboard` — View richest players\n\n" +
+                "[Get Support](https://discord.gg/4rv6P8xF8U) | " +
+                "[Invite The Bot](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands) | " +
+                "[Support us on ko-fi](https://ko-fi.com/sremn)",
+              footer: { text: "This bot was made by sremn" }
             }
           ]
         }
@@ -192,7 +243,7 @@ export default async function handler(req, res) {
     }
 
     if (name === "balance") {
-      const user = await getUser(userId, username, guildId);
+      const user = await getUser(userId, username);
 
       return res.status(200).json({
         type: 4,
@@ -209,31 +260,37 @@ export default async function handler(req, res) {
     }
 
     if (name === "daily") {
-      const user = await getUser(userId, username, guildId);
-
+      const user = await getUser(userId, username);
       const cooldown = 86400000;
-      const left = cooldownLeft(user.lastDaily, cooldown);
 
-      if (left > 0) {
-        return res.status(200).json({
-          type: 4,
-          data: {
-            flags: 64,
-            embeds: [
-              {
-                color: 0xff4444,
-                title: "Daily Already Claimed",
-                description: `Come back in **${formatTime(left)}**`
-              }
-            ]
-          }
-        });
+      if (user.lastDaily) {
+        const diff = Date.now() - new Date(user.lastDaily).getTime();
+        if (diff < cooldown) {
+          const remaining = cooldown - diff;
+          return res.status(200).json({
+            type: 4,
+            data: {
+              flags: 64,
+              embeds: [
+                {
+                  color: 0xff4444,
+                  title: "Daily Already Claimed",
+                  description: `Come back in **${formatTime(remaining)}**`
+                }
+              ]
+            }
+          });
+        }
       }
 
       const reward = rand(150, 350);
+      await updateBalanceAtomic(userId, reward);
 
-      await safeBalanceUpdate(userId, guildId, reward);
-      await setField(userId, guildId, "lastDaily", new Date());
+      const db = await getDB();
+      await db.collection("users").updateOne(
+        { userId },
+        { $set: { lastDaily: new Date() } }
+      );
 
       return res.status(200).json({
         type: 4,
@@ -250,8 +307,7 @@ export default async function handler(req, res) {
     }
 
     if (name === "mine") {
-      const user = await getUser(userId, username, guildId);
-
+      const user = await getUser(userId, username);
       const left = cooldownLeft(user.lastMine, MINE_COOLDOWN);
 
       if (left > 0) {
@@ -271,9 +327,13 @@ export default async function handler(req, res) {
       }
 
       const gem = rollMine();
+      await updateBalanceAtomic(userId, gem.coins);
 
-      await safeBalanceUpdate(userId, guildId, gem.coins);
-      await setField(userId, guildId, "lastMine", new Date());
+      const db = await getDB();
+      await db.collection("users").updateOne(
+        { userId },
+        { $set: { lastMine: new Date() } }
+      );
 
       return res.status(200).json({
         type: 4,
@@ -290,29 +350,46 @@ export default async function handler(req, res) {
     }
 
     if (name === "gamble") {
-      const user = await getUser(userId, username, guildId);
+      const cd = checkCooldown(userId, "gamble", 5);
 
+      if (cd > 0) {
+        return res.status(200).json({
+          type: 4,
+          data: {
+            flags: 64,
+            embeds: [
+              {
+                color: 0xff4444,
+                description: `Wait **${cd}s** before using this again`
+              }
+            ]
+          }
+        });
+      }
+
+      const user = await getUser(userId, username);
       const betOption = body.data.options?.find(o => o.name === "amount");
       const bet = betOption ? parseInt(betOption.value) : 0;
 
-      if (!bet || bet <= 0)
+      if (!validateAmount(bet)) {
         return res.status(200).json({
           type: 4,
           data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid bet amount" }] }
         });
+      }
 
-      if (bet > user.balance)
+      if (bet > user.balance) {
         return res.status(200).json({
           type: 4,
           data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }
         });
+      }
 
       const { result, multiplier } = doGamble();
-
       const winnings = bet * multiplier;
       const net = winnings - bet;
 
-      await safeBalanceUpdate(userId, guildId, net);
+      await updateBalanceAtomic(userId, net);
 
       let title, color, desc;
 
@@ -330,14 +407,17 @@ export default async function handler(req, res) {
         desc = `Lost **${bet}**`;
       }
 
-      return res.status(200).json({ type: 4, data: { embeds: [{ color, title, description: desc }] } });
+      return res.status(200).json({
+        type: 4,
+        data: { embeds: [{ color, title, description: desc }] }
+      });
     }
 
     if (name === "give") {
       const db = await getDB();
       const users = db.collection("users");
 
-      const user = await getUser(userId, username, guildId);
+      const user = await getUser(userId, username);
 
       const targetOption = body.data.options?.find(o => o.name === "user");
       const amountOption = body.data.options?.find(o => o.name === "amount");
@@ -345,41 +425,44 @@ export default async function handler(req, res) {
       const targetId = targetOption.value;
       const amount = parseInt(amountOption.value);
 
+      if (!validateAmount(amount)) {
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid amount" }] }
+        });
+      }
+
       const today = new Date().toDateString();
 
       if (user.transferDate !== today) {
         await users.updateOne(
-          { userId, guildId },
+          { userId },
           { $set: { transferToday: 0, transferDate: today } }
         );
         user.transferToday = 0;
       }
 
-      if (user.transferToday + amount > 500000)
+      if (user.transferToday + amount > 500000) {
         return res.status(200).json({
           type: 4,
           data: {
             flags: 64,
-            embeds: [
-              {
-                color: 0xff4444,
-                description: "Daily transfer limit is **500000 coins**"
-              }
-            ]
+            embeds: [{ color: 0xff4444, description: "Daily transfer limit is **500000 coins**" }]
           }
         });
+      }
 
-      if (amount > user.balance)
+      if (amount > user.balance) {
         return res.status(200).json({
           type: 4,
           data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }
         });
+      }
 
-      await safeBalanceUpdate(userId, guildId, -amount);
-      await safeBalanceUpdate(targetId, guildId, amount);
+      await transferCoins(userId, targetId, amount);
 
       await users.updateOne(
-        { userId, guildId },
+        { userId },
         { $inc: { transferToday: amount } }
       );
 
@@ -397,47 +480,60 @@ export default async function handler(req, res) {
       });
     }
 
-if (name === "leaderboard") {
-  const db = await getDB();
-  const usersCollection = db.collection("users");
+    if (name === "leaderboard") {
+      const db = await getDB();
+      const usersCollection = db.collection("users");
 
-  const topUsers = await usersCollection
-    .find({ guildId })
-    .sort({ balance: -1 })
-    .limit(10)
-    .toArray();
+      const topUsers = await usersCollection
+        .find({})
+        .sort({ balance: -1 })
+        .limit(10)
+        .toArray();
 
-  let rows = "";
+      let rows = "";
 
-  for (let i = 0; i < topUsers.length; i++) {
-    const u = topUsers[i];
-    rows += `${i + 1}. <@${u.userId}> - Coins ${u.balance.toLocaleString()}\n`;
-  }
+      for (let i = 0; i < topUsers.length; i++) {
+        const u = topUsers[i];
+        rows += `${i + 1}. <@${u.userId}> - Coins ${u.balance.toLocaleString()}\n`;
+      }
 
-  if (!rows) rows = "No players yet.";
+      if (!rows) {
+        return res.status(200).json({
+          type: 4,
+          data: {
+            embeds: [
+              {
+                color: 0x3a3b40,
+                title: "Leaderboard",
+                description: "...",
+                footer: { text: "No players yet." }
+              }
+            ]
+          }
+        });
+      }
 
-  const currentUser = await getUser(userId, username, guildId);
+      const currentUser = await getUser(userId, username);
 
-  const rank =
-    (await usersCollection.countDocuments({
-      guildId,
-      balance: { $gt: currentUser.balance }
-    })) + 1;
+      const rank =
+        (await usersCollection.countDocuments({
+          balance: { $gt: currentUser.balance }
+        })) + 1;
 
-  return res.status(200).json({
-    type: 4,
-    data: {
-      embeds: [
-        {
-          color: 0x3a3b40,
-          title: "Leaderboard",
-          description:
-            `${rows}\n-# Congratulations! You are currently ranked **#${rank}**!`
+      return res.status(200).json({
+        type: 4,
+        data: {
+          embeds: [
+            {
+              color: 0x3a3b40,
+              title: "Leaderboard",
+              description:
+                `${rows}\n-# Congratulations! You are currently ranked **#${rank}**!`
+            }
+          ]
         }
-      ]
+      });
     }
-  });
-}
 
     return res.status(200).json({ type: 4, data: { content: "Unknown command" } });
   }
