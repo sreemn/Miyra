@@ -22,6 +22,7 @@ async function getUser(userId, username) {
   const db = await getDB();
   const users = db.collection("users");
   let user = await users.findOne({ userId });
+
   if (!user) {
     user = {
       userId,
@@ -35,6 +36,7 @@ async function getUser(userId, username) {
   } else if (user.username !== username) {
     await users.updateOne({ userId }, { $set: { username } });
   }
+
   return user;
 }
 
@@ -43,15 +45,20 @@ async function safeBalanceUpdate(userId, amount) {
   const users = db.collection("users");
   const user = await users.findOne({ userId });
   if (!user) return;
+
   const newBalance = user.balance + amount;
+
   if (newBalance < 0) return;
   if (newBalance > 100000000) return;
+
   await users.updateOne({ userId }, { $set: { balance: newBalance } });
 }
 
 async function setField(userId, field, value) {
   const db = await getDB();
-  await db.collection("users").updateOne({ userId }, { $set: { [field]: value } }, { upsert: true });
+  await db
+    .collection("users")
+    .updateOne({ userId }, { $set: { [field]: value } }, { upsert: true });
 }
 
 function cooldownLeft(lastUsed, cooldownMs) {
@@ -65,6 +72,7 @@ function formatTime(ms) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
+
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
@@ -88,17 +96,21 @@ const GEM_TABLE = [
 function rollMine() {
   const roll = rand(1, 100);
   let cumulative = 0;
+
   for (const gem of GEM_TABLE) {
     cumulative += gem.chance;
     if (roll <= cumulative) return gem;
   }
+
   return GEM_TABLE[0];
 }
 
 function doGamble() {
   const roll = rand(1, 100);
+
   if (roll <= 10) return { result: "jackpot", multiplier: 5 };
   if (roll <= 45) return { result: "win", multiplier: 2 };
+
   return { result: "lose", multiplier: 0 };
 }
 
@@ -109,8 +121,9 @@ export default async function handler(req, res) {
   const timestamp = req.headers["x-signature-timestamp"];
 
   let rawBody = "";
+
   await new Promise(resolve => {
-    req.on("data", chunk => rawBody += chunk);
+    req.on("data", chunk => (rawBody += chunk));
     req.on("end", resolve);
   });
 
@@ -128,6 +141,7 @@ export default async function handler(req, res) {
 
   if (body.type === 2) {
     const name = body.data.name;
+
     const discordUser = body.member?.user || body.user;
     const userId = discordUser.id;
     const username = discordUser.username;
@@ -153,34 +167,40 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x3a3b40,
-            title: "How to Play",
-            description:
-              "Use commands like `/daily`, `/mine`, `/gamble`, and `/balance` to play the economy game.\n\n" +
-              "[Support](https://discord.gg/4rv6P8xF8U) | " +
-              "[Invite](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands)"
-          }]
+          embeds: [
+            {
+              color: 0x3a3b40,
+              title: "How to Play",
+              description:
+                "Use commands like `/daily`, `/mine`, `/gamble`, and `/balance` to play the economy game.\n\n" +
+                "[Support](https://discord.gg/4rv6P8xF8U) | " +
+                "[Invite](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands)"
+            }
+          ]
         }
       });
     }
 
     if (name === "balance") {
       const user = await getUser(userId, username);
+
       return res.status(200).json({
         type: 4,
         data: {
           flags: 64,
-          embeds: [{
-            color: 0xac78f3,
-            description: `${username}'s Balance: ${user.balance.toLocaleString()} 🪙`
-          }]
+          embeds: [
+            {
+              color: 0xac78f3,
+              description: `${username}'s Balance: ${user.balance.toLocaleString()} 🪙`
+            }
+          ]
         }
       });
     }
 
     if (name === "daily") {
       const user = await getUser(userId, username);
+
       const cooldown = 86400000;
       const left = cooldownLeft(user.lastDaily, cooldown);
 
@@ -189,33 +209,39 @@ export default async function handler(req, res) {
           type: 4,
           data: {
             flags: 64,
-            embeds: [{
-              color: 0xff4444,
-              title: "⏳ Daily Already Claimed",
-              description: `Come back in **${formatTime(left)}**`
-            }]
+            embeds: [
+              {
+                color: 0xff4444,
+                title: "⏳ Daily Already Claimed",
+                description: `Come back in **${formatTime(left)}**`
+              }
+            ]
           }
         });
       }
 
       const reward = rand(150, 350);
+
       await safeBalanceUpdate(userId, reward);
       await setField(userId, "lastDaily", new Date());
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x57f287,
-            title: "📅 Daily Reward",
-            description: `You received **${reward} 🪙**`
-          }]
+          embeds: [
+            {
+              color: 0x57f287,
+              title: "📅 Daily Reward",
+              description: `You received **${reward} 🪙**`
+            }
+          ]
         }
       });
     }
 
     if (name === "mine") {
       const user = await getUser(userId, username);
+
       const left = cooldownLeft(user.lastMine, MINE_COOLDOWN);
 
       if (left > 0) {
@@ -223,27 +249,32 @@ export default async function handler(req, res) {
           type: 4,
           data: {
             flags: 64,
-            embeds: [{
-              color: 0xff4444,
-              title: "⏳ Pickaxe cooling down",
-              description: `Mine again in **${formatTime(left)}**`
-            }]
+            embeds: [
+              {
+                color: 0xff4444,
+                title: "⏳ Pickaxe cooling down",
+                description: `Mine again in **${formatTime(left)}**`
+              }
+            ]
           }
         });
       }
 
       const gem = rollMine();
+
       await safeBalanceUpdate(userId, gem.coins);
       await setField(userId, "lastMine", new Date());
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0xfaa61a,
-            title: "⛏️ Mining Results",
-            description: `You found **${gem.name}** worth **${gem.coins} 🪙**`
-          }]
+          embeds: [
+            {
+              color: 0xfaa61a,
+              title: "⛏️ Mining Results",
+              description: `You found **${gem.name}** worth **${gem.coins} 🪙**`
+            }
+          ]
         }
       });
     }
@@ -257,18 +288,25 @@ export default async function handler(req, res) {
       if (!bet || bet <= 0) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid bet amount" }] }
+          data: {
+            flags: 64,
+            embeds: [{ color: 0xff4444, description: "Invalid bet amount" }]
+          }
         });
       }
 
       if (bet > user.balance) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }
+          data: {
+            flags: 64,
+            embeds: [{ color: 0xff4444, description: "Not enough coins" }]
+          }
         });
       }
 
       const { result, multiplier } = doGamble();
+
       const winnings = bet * multiplier;
       const net = winnings - bet;
 
@@ -292,7 +330,9 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         type: 4,
-        data: { embeds: [{ color, title, description: desc }] }
+        data: {
+          embeds: [{ color, title, description: desc }]
+        }
       });
     }
 
@@ -305,7 +345,10 @@ export default async function handler(req, res) {
       if (!targetOption || !amountOption) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid command usage" }] }
+          data: {
+            flags: 64,
+            embeds: [{ color: 0xff4444, description: "Invalid command usage" }]
+          }
         });
       }
 
@@ -315,21 +358,36 @@ export default async function handler(req, res) {
       if (amount <= 0) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Amount must be greater than 0" }] }
+          data: {
+            flags: 64,
+            embeds: [
+              { color: 0xff4444, description: "Amount must be greater than 0" }
+            ]
+          }
         });
       }
 
       if (targetId === userId) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You cannot give coins to yourself" }] }
+          data: {
+            flags: 64,
+            embeds: [
+              { color: 0xff4444, description: "You cannot give coins to yourself" }
+            ]
+          }
         });
       }
 
       if (amount > user.balance) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You don't have enough coins" }] }
+          data: {
+            flags: 64,
+            embeds: [
+              { color: 0xff4444, description: "You don't have enough coins" }
+            ]
+          }
         });
       }
 
@@ -339,34 +397,54 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x57f287,
-            title: "💸 Coins Sent",
-            description: `You gave **${amount.toLocaleString()} 🪙** to <@${targetId}>`
-          }]
+          embeds: [
+            {
+              color: 0x57f287,
+              title: "💸 Coins Sent",
+              description: `You gave **${amount.toLocaleString()} 🪙** to <@${targetId}>`
+            }
+          ]
         }
       });
     }
 
-    if (name === "top") {
+    if (name === "leaderboard") {
       const db = await getDB();
-      const top = await db.collection("users").find({}).sort({ balance: -1 }).limit(10).toArray();
+
+      const top = await db
+        .collection("users")
+        .find({})
+        .sort({ balance: -1 })
+        .limit(10)
+        .toArray();
 
       const medals = ["🥇", "🥈", "🥉"];
 
-      const rows = top.map((u, i) => {
+      let rows = "";
+
+      for (let i = 0; i < 10; i++) {
+        const user = top[i];
         const rank = medals[i] || `#${i + 1}`;
-        return `${rank} - ${u.balance.toLocaleString()} 🪙 <@${u.userId}>`;
-      }).join("\n");
+
+        if (user) {
+          const name = user.username.padEnd(15, " ");
+          const coins = user.balance.toLocaleString();
+          rows += `${rank} ${name} ${coins} 🪙\n`;
+        } else {
+          rows += `${rank}\n`;
+        }
+      }
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x2b2d31,
-            title: "Leaderboard",
-            description: rows || "No users yet"
-          }]
+          embeds: [
+            {
+              color: 0x2b2d31,
+              title: "🏆 Leaderboard",
+              description: "```" + rows.trim() + "```"
+            }
+          ]
         }
       });
     }
