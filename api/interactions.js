@@ -87,8 +87,8 @@ export default async function handler(req, res) {
           embeds: [
             {
               color: 0x3a3b40,
+              title: "How to Play",
               description:
-                "**How to Play**\n" +
                 "To start playing, an admin must use `/settings` and pick a name for your community. Then just take turns clicking the 🧩 button to keep playing!\n\n" +
                 "[Get Support](https://discord.gg/7HTxrWsH73) | " +
                 "[Invite The Bot](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands) | " +
