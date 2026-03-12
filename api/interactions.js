@@ -359,7 +359,7 @@ export default async function handler(req, res) {
         data: {
           embeds: [{
             color: 0x3a3b40,
-            title: "Most Experienced Gardeners",
+            title: "Leaderboard",
             description: rows.trim()
           }]
         }
