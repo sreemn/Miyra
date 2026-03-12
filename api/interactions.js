@@ -106,7 +106,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     type: 4,
     data: {
-      content: "Unknown command"
+      content: "Internal Error."
     }
   });
 }
