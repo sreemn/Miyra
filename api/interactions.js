@@ -396,7 +396,7 @@ export default async function handler(req, res) {
             {
               color: 0x3a3b40,
               title: "Leaderboard",
-              description: `${rows}\nCongratulations! You are currently ranked **#${rank}**!`
+              description: `${rows}\n-# Congratulations! You are currently ranked **#${rank}**!`
             }
           ]
         }
