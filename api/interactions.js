@@ -141,29 +141,39 @@ export default async function handler(req, res) {
     const userId = discordUser.id;
     const username = discordUser.username;
 
+    if (name === "about") {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          embeds: [
+            {
+              color: 0x3a3b40,
+              title: "How to Play",
+              description:
+                "To start playing, an admin must use `/settings` and pick a name for your community. Then just take turns clicking the 🧩 button to keep playing!\n\n" +
+                "[Get Support](https://discord.gg/4rv6P8xF8U) | " +
+                "[Invite The Bot](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands) | " +
+                "[Support us on ko-fi](https://ko-fi.com/sremn)",
+              footer: { text: "This bot was made by sremn" }
+            }
+          ]
+        }
+      });
+    }
+
     if (name === "help") {
       return res.status(200).json({
         type: 4,
         data: {
           flags: 64,
-          embeds: [{
-            color: 0x3a3b40,
-            description: "Use /daily /mine /gamble /balance to play."
-          }]
-        }
-      });
-    }
-
-    if (name === "about") {
-      return res.status(200).json({
-        type: 4,
-        data: {
-          embeds: [{
-            color: 0x3a3b40,
-            title: "How to Play",
-            description: "Economy game commands.",
-            footer: { text: "This bot was made by sremn" }
-          }]
+          embeds: [
+            {
+              color: 0x3a3b40,
+              description:
+                "If you're just looking for info about how the bot works, a command list or clarification about something — check the **/about** command.\n\n" +
+                "If that's not enough, join our Discord server for announcements and support."
+            }
+          ]
         }
       });
     }
@@ -174,10 +184,12 @@ export default async function handler(req, res) {
         type: 4,
         data: {
           flags: 64,
-          embeds: [{
-            color: 0xac78f3,
-            description: `${username}'s Balance: ${user.balance.toLocaleString()} 🪙`
-          }]
+          embeds: [
+            {
+              color: 0xac78f3,
+              description: `${username}'s Balance: ${user.balance.toLocaleString()} 🪙`
+            }
+          ]
         }
       });
     }
@@ -192,11 +204,13 @@ export default async function handler(req, res) {
           type: 4,
           data: {
             flags: 64,
-            embeds: [{
-              color: 0xff4444,
-              title: "⏳ Daily Already Claimed",
-              description: `Come back in **${formatTime(left)}**`
-            }]
+            embeds: [
+              {
+                color: 0xff4444,
+                title: "⏳ Daily Already Claimed",
+                description: `Come back in **${formatTime(left)}**`
+              }
+            ]
           }
         });
       }
@@ -208,11 +222,13 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x57f287,
-            title: "📅 Daily Reward",
-            description: `You received **${reward} 🪙**`
-          }]
+          embeds: [
+            {
+              color: 0x57f287,
+              title: "📅 Daily Reward",
+              description: `You received **${reward} 🪙**`
+            }
+          ]
         }
       });
     }
@@ -226,11 +242,13 @@ export default async function handler(req, res) {
           type: 4,
           data: {
             flags: 64,
-            embeds: [{
-              color: 0xff4444,
-              title: "⏳ Pickaxe cooling down",
-              description: `Mine again in **${formatTime(left)}**`
-            }]
+            embeds: [
+              {
+                color: 0xff4444,
+                title: "⏳ Pickaxe cooling down",
+                description: `Mine again in **${formatTime(left)}**`
+              }
+            ]
           }
         });
       }
@@ -242,11 +260,13 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0xfaa61a,
-            title: "⛏️ Mining Results",
-            description: `You found **${gem.name}** worth **${gem.coins} 🪙**`
-          }]
+          embeds: [
+            {
+              color: 0xfaa61a,
+              title: "⛏️ Mining Results",
+              description: `You found **${gem.name}** worth **${gem.coins} 🪙**`
+            }
+          ]
         }
       });
     }
@@ -257,11 +277,17 @@ export default async function handler(req, res) {
       const bet = betOption ? parseInt(betOption.value) : 0;
 
       if (!bet || bet <= 0) {
-        return res.status(200).json({ type: 4, data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid bet amount" }] }});
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid bet amount" }] }
+        });
       }
 
       if (bet > user.balance) {
-        return res.status(200).json({ type: 4, data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }});
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }
+        });
       }
 
       const { result, multiplier } = doGamble();
@@ -286,7 +312,7 @@ export default async function handler(req, res) {
         desc = `Lost **${bet} 🪙**`;
       }
 
-      return res.status(200).json({ type: 4, data: { embeds: [{ color, title, description: desc }] }});
+      return res.status(200).json({ type: 4, data: { embeds: [{ color, title, description: desc }] } });
     }
 
     if (name === "give") {
@@ -295,22 +321,34 @@ export default async function handler(req, res) {
       const amountOption = body.data.options?.find(o => o.name === "amount");
 
       if (!targetOption || !amountOption) {
-        return res.status(200).json({ type: 4, data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid command usage" }] }});
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid command usage" }] }
+        });
       }
 
       const targetId = targetOption.value;
       const amount = parseInt(amountOption.value);
 
       if (amount <= 0) {
-        return res.status(200).json({ type: 4, data: { flags: 64, embeds: [{ color: 0xff4444, description: "Amount must be greater than 0" }] }});
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Amount must be greater than 0" }] }
+        });
       }
 
       if (targetId === userId) {
-        return res.status(200).json({ type: 4, data: { flags: 64, embeds: [{ color: 0xff4444, description: "You cannot give coins to yourself" }] }});
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You cannot give coins to yourself" }] }
+        });
       }
 
       if (amount > user.balance) {
-        return res.status(200).json({ type: 4, data: { flags: 64, embeds: [{ color: 0xff4444, description: "You don't have enough coins" }] }});
+        return res.status(200).json({
+          type: 4,
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You don't have enough coins" }] }
+        });
       }
 
       await safeBalanceUpdate(userId, -amount);
@@ -319,53 +357,56 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x57f287,
-            title: "💸 Coins Sent",
-            description: `You gave **${amount.toLocaleString()} 🪙** to <@${targetId}>`
-          }]
+          embeds: [
+            {
+              color: 0x57f287,
+              title: "💸 Coins Sent",
+              description: `You gave **${amount.toLocaleString()} 🪙** to <@${targetId}>`
+            }
+          ]
         }
       });
     }
 
     if (name === "leaderboard") {
       const db = await getDB();
-      const guildId = body.guild_id;
+      const usersCollection = db.collection("users");
 
-      const users = await db.collection("users").find({}).sort({ balance: -1 }).limit(50).toArray();
+      const topUsers = await usersCollection
+        .find({})
+        .sort({ balance: -1 })
+        .limit(10)
+        .toArray();
 
-      const icons = ["🥇","🥈","🥉"];
       let rows = "";
-      let rankIndex = 0;
 
-      for (const user of users) {
-        if (rankIndex >= 10) break;
-
-        const r = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${user.userId}`, {
-          headers: { Authorization: `Bot ${BOT_TOKEN}` }
-        });
-
-        if (r.status !== 200) continue;
-
-        const rank = rankIndex < 3 ? icons[rankIndex] : `#${rankIndex + 1}`;
-        rows += `${rank} - ${user.balance.toLocaleString()} 🪙 <@${user.userId}>\n`;
-        rankIndex++;
+      for (let i = 0; i < topUsers.length; i++) {
+        const u = topUsers[i];
+        const coins = u.balance || 0;
+        rows += `${i + 1}. <@${u.userId}> - Coins ${coins.toLocaleString()} 🪙\n`;
       }
 
-      if (!rows) rows = "No players yet.";
+      const currentUser = await getUser(userId, username);
+
+      const rank =
+        (await usersCollection.countDocuments({
+          balance: { $gt: currentUser.balance }
+        })) + 1;
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [{
-            color: 0x3a3b40,
-            title: "Server Leaderboard",
-            description: rows.trim()
-          }]
+          embeds: [
+            {
+              color: 0x2b2d31,
+              title: "Leaderboard",
+              description: `${rows}\nCongratulations! You are currently ranked #${rank}!`
+            }
+          ]
         }
       });
     }
 
-    return res.status(200).json({ type: 4, data: { content: "Unknown command" }});
+    return res.status(200).json({ type: 4, data: { content: "Unknown command" } });
   }
 }
