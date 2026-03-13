@@ -3,20 +3,21 @@ import { MongoClient } from "mongodb";
 
 export const config = { api: { bodyParser: false } };
 
-const APP_ID = process.env.APP_ID;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
 const MONGODB_URI = process.env.sushi_MONGODB_URI;
 
 let cachedClient = null;
+let cachedDB = null;
 let indexesEnsured = false;
 const commandCooldown = new Map();
 
 async function getDB() {
-  if (cachedClient) return cachedClient.db("discordbot");
+  if (cachedDB) return cachedDB;
   const client = new MongoClient(MONGODB_URI, { maxPoolSize: 10 });
   await client.connect();
   cachedClient = client;
-  return client.db("discordbot");
+  cachedDB = client.db("discordbot");
+  return cachedDB;
 }
 
 async function ensureIndexes() {
@@ -71,13 +72,11 @@ async function updateBalanceAtomic(userId, amount) {
 async function transferCoins(fromId, toId, amount) {
   const db = await getDB();
   const users = db.collection("users");
-  const client = cachedClient;
-  const session = client.startSession();
+  const session = cachedClient.startSession();
 
   try {
     await session.withTransaction(async () => {
       const sender = await users.findOne({ userId: fromId }, { session });
-
       if (!sender || sender.balance < amount) throw new Error("balance");
 
       await users.updateOne(
@@ -86,11 +85,29 @@ async function transferCoins(fromId, toId, amount) {
         { session }
       );
 
-      await users.updateOne(
-        { userId: toId },
-        { $inc: { balance: amount } },
-        { session }
-      );
+      const target = await users.findOne({ userId: toId }, { session });
+
+      if (!target) {
+        await users.insertOne(
+          {
+            userId: toId,
+            username: "Unknown",
+            balance: amount,
+            lastDaily: null,
+            lastMine: null,
+            transferToday: 0,
+            transferDate: null,
+            createdAt: new Date()
+          },
+          { session }
+        );
+      } else {
+        await users.updateOne(
+          { userId: toId },
+          { $inc: { balance: amount } },
+          { session }
+        );
+      }
     });
   } finally {
     await session.endSession();
@@ -104,10 +121,10 @@ function cooldownLeft(lastUsed, cooldownMs) {
 }
 
 function formatTime(ms) {
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
@@ -208,8 +225,7 @@ export default async function handler(req, res) {
             {
               color: 0x3a3b40,
               description:
-                "If you're just looking for info about how the bot works, a command list or clarification about something — check the **/about** command.\n\n" +
-                "If that's not enough, join our Discord server for announcements and support."
+                "Use /about to learn the commands and how the system works."
             }
           ]
         }
@@ -225,16 +241,12 @@ export default async function handler(req, res) {
               color: 0x3a3b40,
               title: "How to Play",
               description:
-                "To start playing, use the commands below.\n\n" +
-                "`/daily` — Claim daily coins\n" +
-                "`/mine` — Mine random coins\n" +
-                "`/gamble <amount>` — Gamble coins\n" +
-                "`/give <user> <amount>` — Send coins\n" +
-                "`/balance` — Check balance\n" +
-                "`/leaderboard` — View richest players\n\n" +
-                "[Get Support](https://discord.gg/4rv6P8xF8U) | " +
-                "[Invite The Bot](https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands) | " +
-                "[Support us on ko-fi](https://ko-fi.com/sremn)",
+                "/daily Claim daily coins\n" +
+                "/mine Mine random coins\n" +
+                "/gamble <amount> Gamble coins\n" +
+                "/give <user> <amount> Send coins\n" +
+                "/balance Check balance\n" +
+                "/leaderboard View richest players",
               footer: { text: "This bot was made by sremn" }
             }
           ]
@@ -274,8 +286,7 @@ export default async function handler(req, res) {
               embeds: [
                 {
                   color: 0xff4444,
-                  title: "Daily Already Claimed",
-                  description: `Come back in **${formatTime(remaining)}**`
+                  description: `Come back in ${formatTime(remaining)}`
                 }
               ]
             }
@@ -298,8 +309,7 @@ export default async function handler(req, res) {
           embeds: [
             {
               color: 0x57f287,
-              title: "Daily Reward",
-              description: `You received **${reward}**`
+              description: `You received ${reward}`
             }
           ]
         }
@@ -318,8 +328,7 @@ export default async function handler(req, res) {
             embeds: [
               {
                 color: 0xff4444,
-                title: "Pickaxe cooling down",
-                description: `Mine again in **${formatTime(left)}**`
+                description: `Mine again in ${formatTime(left)}`
               }
             ]
           }
@@ -341,8 +350,7 @@ export default async function handler(req, res) {
           embeds: [
             {
               color: 0xfaa61a,
-              title: "Mining Results",
-              description: `You found **${gem.name}** worth **${gem.coins}**`
+              description: `You found ${gem.name} worth ${gem.coins}`
             }
           ]
         }
@@ -360,7 +368,7 @@ export default async function handler(req, res) {
             embeds: [
               {
                 color: 0xff4444,
-                description: `Wait **${cd}s** before using this again`
+                description: `Wait ${cd}s before using this again`
               }
             ]
           }
@@ -396,15 +404,15 @@ export default async function handler(req, res) {
       if (result === "jackpot") {
         title = "JACKPOT";
         color = 0xffd700;
-        desc = `You won **${winnings}**`;
+        desc = `You won ${winnings}`;
       } else if (result === "win") {
         title = "You Won";
         color = 0x57f287;
-        desc = `You doubled to **${winnings}**`;
+        desc = `You doubled to ${winnings}`;
       } else {
         title = "You Lost";
         color = 0xff4444;
-        desc = `Lost **${bet}**`;
+        desc = `Lost ${bet}`;
       }
 
       return res.status(200).json({
@@ -422,10 +430,10 @@ export default async function handler(req, res) {
       const targetOption = body.data.options?.find(o => o.name === "user");
       const amountOption = body.data.options?.find(o => o.name === "amount");
 
-      const targetId = targetOption.value;
-      const amount = parseInt(amountOption.value);
+      const targetId = targetOption?.value;
+      const amount = parseInt(amountOption?.value);
 
-      if (!validateAmount(amount)) {
+      if (!targetId || !validateAmount(amount)) {
         return res.status(200).json({
           type: 4,
           data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid amount" }] }
@@ -445,10 +453,7 @@ export default async function handler(req, res) {
       if (user.transferToday + amount > 500000) {
         return res.status(200).json({
           type: 4,
-          data: {
-            flags: 64,
-            embeds: [{ color: 0xff4444, description: "Daily transfer limit is **500000 coins**" }]
-          }
+          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Daily transfer limit is 500000 coins" }] }
         });
       }
 
@@ -472,8 +477,7 @@ export default async function handler(req, res) {
           embeds: [
             {
               color: 0x57f287,
-              title: "Coins Sent",
-              description: `You gave **${amount.toLocaleString()}** to <@${targetId}>`
+              description: `You gave ${amount.toLocaleString()} to <@${targetId}>`
             }
           ]
         }
