@@ -455,7 +455,7 @@ export default async function handler(req, res) {
       for (let i = 0; i < topUsers.length; i++) {
         const u = topUsers[i];
         const coins = u.balance || 0;
-        rows += `${i + 1}. <@${u.userId}> - Coins `${coins.toLocaleString()}`\n`;
+        rows += `${i + 1}. <@${u.userId}> - Coins \`${coins.toLocaleString()}\`\n`;
       }
 
       const currentUser = await getUser(userId, username, guildId);
