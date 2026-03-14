@@ -44,7 +44,7 @@ async function getUser(userId, username, guildId) {
     { upsert: true, returnDocument: "after" }
   );
 
-  return result;
+  return result.value;
 }
 
 async function changeBalance(userId, guildId, amount) {
@@ -61,7 +61,7 @@ async function changeBalance(userId, guildId, amount) {
     { returnDocument: "after" }
   );
 
-  return result;
+  return result.value;
 }
 
 async function setField(userId, guildId, field, value) {
@@ -156,6 +156,52 @@ export default async function handler(req, res) {
 
   try {
 
+    if (name === "about") {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          embeds: [
+            {
+              color: 0x3b9cff,
+              title: "Fireside's Help Menu",
+              description:
+                "I'm a bot designed to be a helpful and fun companion for your server. Choose a feature from the dropdown below to see what I can do!\n\nUse `/help [command]` for more details.",
+              image: {
+                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275628861493321/HelpMenu.png?ex=69b65c41&is=69b50ac1&hm=8e6770623a777db1994b30deed862db6f78585026dd1a365de2687161f888fe3&"
+              }
+            }
+          ]
+        }
+      });
+    }
+
+    if (name === "help") {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          embeds: [
+            {
+              color: 0x7e73ff,
+              title: "Tools & Info",
+              description:
+                "Helpful tools and information commands.\n\nUse `/help [command]` for more details.\n\n" +
+                "**/about** - Shows information about the bot and how it works.\n" +
+                "**/help** - Displays the help menu with all available commands.\n" +
+                "**/balance** - Check your current coin balance.\n" +
+                "**/daily** - Claim your daily coin reward.\n" +
+                "**/mine** - Mine for resources to earn coins.\n" +
+                "**/gamble** - Bet coins for a chance to win more.\n" +
+                "**/give** - Send coins to another user.\n" +
+                "**/leaderboard** - View the richest users in the server.",
+              image: {
+                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png?ex=69b65c41&is=69b50ac1&hm=dedf983c9ea6c80b71f90002add39e7f3ccc8d39667047cf88f6e91539ee5015&"
+              }
+            }
+          ]
+        }
+      });
+    }
+
     if (name === "balance") {
       const user = await getUser(userId, username, guildId);
       return res.status(200).json({
@@ -183,7 +229,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         type: 4,
-        data: { content: `You claimed your daily reward of ${reward.toLocaleString()} coins` }
+        data: { content: `You claimed your daily reward of \`${reward.toLocaleString()}\` coins!` }
       });
     }
 
@@ -205,6 +251,61 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: { content: `You found ${gem.name} worth ${gem.coins}` }
+      });
+    }
+
+    if (name === "gamble") {
+      const user = await getUser(userId, username, guildId);
+      const bet = parseInt(body.data.options?.find(o => o.name === "amount")?.value || 0);
+
+      if (!bet || bet <= 0) {
+        return res.status(200).json({ type: 4, data: { content: "Invalid bet amount" } });
+      }
+
+      if (bet > user.balance) {
+        return res.status(200).json({ type: 4, data: { content: "Not enough coins" } });
+      }
+
+      const { result, multiplier } = doGamble();
+      const winnings = bet * multiplier;
+      const net = winnings - bet;
+
+      await changeBalance(userId, guildId, net);
+
+      if (result === "jackpot") {
+        return res.status(200).json({ type: 4, data: { content: `Jackpot. You won ${winnings}` } });
+      }
+
+      if (result === "win") {
+        return res.status(200).json({ type: 4, data: { content: `You doubled to ${winnings}` } });
+      }
+
+      return res.status(200).json({ type: 4, data: { content: `You lost ${bet}` } });
+    }
+
+    if (name === "give") {
+      const user = await getUser(userId, username, guildId);
+      const targetId = body.data.options?.find(o => o.name === "user")?.value;
+      const amount = parseInt(body.data.options?.find(o => o.name === "amount")?.value || 0);
+
+      if (!targetId || amount <= 0) {
+        return res.status(200).json({ type: 4, data: { content: "Invalid usage" } });
+      }
+
+      if (targetId === userId) {
+        return res.status(200).json({ type: 4, data: { content: "You cannot give coins to yourself" } });
+      }
+
+      if (amount > user.balance) {
+        return res.status(200).json({ type: 4, data: { content: "You do not have enough coins" } });
+      }
+
+      await changeBalance(userId, guildId, -amount);
+      await changeBalance(targetId, guildId, amount);
+
+      return res.status(200).json({
+        type: 4,
+        data: { content: `You gave ${amount.toLocaleString()} to <@${targetId}>` }
       });
     }
 
@@ -237,31 +338,6 @@ export default async function handler(req, res) {
               description: `${rows}\nYou are ranked #${rank}`
             }
           ]
-        }
-      });
-    }
-
-    if (name === "reset") {
-      const memberPerms = body.member?.permissions;
-
-      if (!memberPerms || (BigInt(memberPerms) & 0x8n) !== 0x8n) {
-        return res.status(200).json({
-          type: 4,
-          data: {
-            content: "You do not have permission to use this command",
-            flags: 64
-          }
-        });
-      }
-
-      const database = await getDB();
-      await database.collection("users").deleteMany({ guildId });
-
-      return res.status(200).json({
-        type: 4,
-        data: {
-          content: "Leaderboard has been reset for this server",
-          flags: 64
         }
       });
     }
