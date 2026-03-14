@@ -316,7 +316,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       type: 4,
       data: {
-        content: `🍪 You gave **${amount.toLocaleString()} cookies** to <@${target}>!`
+        content: `You gave **${amount.toLocaleString()} cookies** to <@${target}>! 🍪`
       }
     });
   }
