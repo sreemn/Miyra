@@ -217,7 +217,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const reward = rand(150, 350);
+    const reward = rand(2000, 3500);
 
     await safeBalanceUpdate(userId, guildId, reward);
     await setField(userId, guildId, "lastDaily", new Date());
