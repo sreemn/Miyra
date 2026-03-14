@@ -480,7 +480,7 @@ if (name === "reset") {
     const usersCollection = db.collection("users");
 
     const topUsers = await usersCollection
-      .find({ guildId })
+      .find({ guildId, balance: { $gt: 0 } })
       .sort({ balance: -1 })
       .limit(10)
       .toArray();
@@ -497,8 +497,8 @@ if (name === "reset") {
     const rank =
       (await usersCollection.countDocuments({
         guildId,
-        balance: { $gt: currentUser.balance }
-      })) + 1;
+        balance: { $gt: currentUser.balance, $gt: 0 }
+       })) + 1;
 
     return res.status(200).json({
       type: 4,
