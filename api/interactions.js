@@ -447,27 +447,33 @@ export default async function handler(req, res) {
       });
     }
   }
+if (name === "reset") {
+  const permissions = BigInt(body.member?.permissions || 0);
+  const ADMIN = 0x8n;
 
-    if (name === "reset") {
-    const isAdmin = body.member?.permissions?.includes("8");
-
-    if (!isAdmin) {
-      return res.status(200).json({
-        type: 4,
-        data: { content: "Only administrators can reset the leaderboard." }
-      });
-    }
-
-    const db = await getDB();
-    const users = db.collection("users");
-
-    await users.updateMany({ guildId }, { $set: { balance: 0 } });
-
+  if ((permissions & ADMIN) !== ADMIN) {
     return res.status(200).json({
       type: 4,
-      data: { content: "Leaderboard for this server has been reset." }
+      data: {
+        flags: 64,
+        content: "Only administrators can reset the leaderboard."
+      }
     });
   }
+
+  const db = await getDB();
+  const users = db.collection("users");
+
+  await users.updateMany({ guildId }, { $set: { balance: 0 } });
+
+  return res.status(200).json({
+    type: 4,
+    data: {
+      flags: 64,
+      content: "Leaderboard for this server has been reset."
+    }
+  });
+}
 
   if (name === "leaderboard") {
     const db = await getDB();
