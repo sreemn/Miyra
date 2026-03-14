@@ -167,7 +167,7 @@ export default async function handler(req, res) {
               description:
                 "I'm a bot designed to be a helpful and fun companion for your server. Choose a feature from the dropdown below to see what I can do!\n\nUse `/help [command]` for more details.",
               image: {
-                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275628861493321/HelpMenu.png?ex=69b65c41&is=69b50ac1&hm=8e6770623a777db1994b30deed862db6f78585026dd1a365de2687161f888fe3&"
+                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275628861493321/HelpMenu.png"
               }
             }
           ]
@@ -195,7 +195,7 @@ export default async function handler(req, res) {
                 "**/leaderboard** - View the richest users in the server.\n" +
                 "**/reset** - Reset the leaderboard for this server.",
               image: {
-                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png?ex=69b65c41&is=69b50ac1&hm=dedf983c9ea6c80b71f90002add39e7f3ccc8d39667047cf88f6e91539ee5015&"
+                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png"
               }
             }
           ]
@@ -344,13 +344,27 @@ export default async function handler(req, res) {
     }
 
     if (name === "reset") {
+      const memberPerms = body.member?.permissions;
+
+      if (!memberPerms || (BigInt(memberPerms) & 0x8n) !== 0x8n) {
+        return res.status(200).json({
+          type: 4,
+          data: {
+            content: "You do not have permission to use this command",
+            flags: 64
+          }
+        });
+      }
+
       const database = await getDB();
       await database.collection("users").deleteMany({ guildId });
 
       return res.status(200).json({
         type: 4,
-        data: { content: "Leaderboard has been reset for this server" },
-        flags: 64
+        data: {
+          content: "Leaderboard has been reset for this server",
+          flags: 64
+        }
       });
     }
 
