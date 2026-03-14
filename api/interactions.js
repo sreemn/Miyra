@@ -1,82 +1,91 @@
 import nacl from "tweetnacl";
 import { MongoClient } from "mongodb";
-import fetch from "node-fetch";
 
 export const config = { api: { bodyParser: false } };
 
-const APP_ID = process.env.APP_ID;
-const BOT_TOKEN = process.env.BOT_TOKEN;
 const PUBLIC_KEY = process.env.PUBLIC_KEY;
-const MONGODB_URI = process.env.sushi_MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-let cachedClient = null;
+let client;
+let db;
 
 async function getDB() {
-  if (cachedClient) return cachedClient.db("discordbot");
-  const client = new MongoClient(MONGODB_URI, { maxPoolSize: 10 });
-  await client.connect();
-  cachedClient = client;
-  return client.db("discordbot");
+  if (db) return db;
+  if (!client) {
+    client = new MongoClient(MONGODB_URI, {
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000
+    });
+    await client.connect();
+  }
+  db = client.db("discordbot");
+  return db;
 }
 
 async function getUser(userId, username, guildId) {
-  const db = await getDB();
-  const users = db.collection("users");
-  let user = await users.findOne({ userId, guildId });
+  const database = await getDB();
+  const users = database.collection("users");
 
-  if (!user) {
-    user = {
-      userId,
-      guildId,
-      username,
-      balance: 100,
-      lastDaily: null,
-      lastMine: null,
-      createdAt: new Date()
-    };
-    await users.insertOne(user);
-  } else if (user.username !== username) {
-    await users.updateOne({ userId, guildId }, { $set: { username } });
-  }
+  const result = await users.findOneAndUpdate(
+    { userId, guildId },
+    {
+      $setOnInsert: {
+        userId,
+        guildId,
+        username,
+        balance: 100,
+        lastDaily: null,
+        lastMine: null,
+        createdAt: new Date()
+      },
+      $set: { username }
+    },
+    { upsert: true, returnDocument: "after" }
+  );
 
-  return user;
+  return result.value;
 }
 
-async function safeBalanceUpdate(userId, guildId, amount) {
-  const db = await getDB();
-  const users = db.collection("users");
-  const user = await users.findOne({ userId, guildId });
-  if (!user) return;
+async function changeBalance(userId, guildId, amount) {
+  const database = await getDB();
+  const users = database.collection("users");
 
-  const newBalance = user.balance + amount;
-  if (newBalance < 0) return;
-  if (newBalance > 1000000000) return;
+  const result = await users.findOneAndUpdate(
+    {
+      userId,
+      guildId,
+      balance: { $gte: amount < 0 ? Math.abs(amount) : 0 }
+    },
+    { $inc: { balance: amount } },
+    { returnDocument: "after" }
+  );
 
-  await users.updateOne({ userId, guildId }, { $set: { balance: newBalance } });
+  return result.value;
 }
 
 async function setField(userId, guildId, field, value) {
-  const db = await getDB();
-  await db.collection("users").updateOne(
+  const database = await getDB();
+  await database.collection("users").updateOne(
     { userId, guildId },
     { $set: { [field]: value } },
     { upsert: true }
   );
 }
 
-function cooldownLeft(lastUsed, cooldownMs) {
+function cooldownLeft(lastUsed, cooldown) {
   if (!lastUsed) return 0;
-  const diff = cooldownMs - (Date.now() - new Date(lastUsed).getTime());
-  return diff > 0 ? diff : 0;
+  const left = cooldown - (Date.now() - new Date(lastUsed).getTime());
+  return left > 0 ? left : 0;
 }
 
 function formatTime(ms) {
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
+  const sec = Math.floor(ms / 1000);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h) return `${h}h ${m}m ${s}s`;
+  if (m) return `${m}m ${s}s`;
   return `${s}s`;
 }
 
@@ -85,6 +94,7 @@ function rand(min, max) {
 }
 
 const MINE_COOLDOWN = 15000;
+const DAILY_COOLDOWN = 86400000;
 
 const GEM_TABLE = [
   { name: "Stone", coins: 3, chance: 30 },
@@ -124,24 +134,27 @@ export default async function handler(req, res) {
     req.on("end", resolve);
   });
 
-  const isVerified = nacl.sign.detached.verify(
+  const verified = nacl.sign.detached.verify(
     Buffer.from(timestamp + rawBody),
     Buffer.from(signature, "hex"),
     Buffer.from(PUBLIC_KEY, "hex")
   );
 
-  if (!isVerified) return res.status(401).send("Invalid request signature");
+  if (!verified) return res.status(401).send("invalid request");
 
   const body = JSON.parse(rawBody);
 
   if (body.type === 1) return res.status(200).json({ type: 1 });
 
-  if (body.type === 2) {
-    const name = body.data.name;
-    const discordUser = body.member?.user || body.user;
-    const userId = discordUser.id;
-    const username = discordUser.username;
-    const guildId = body.guild_id;
+  if (body.type !== 2) return res.status(200).end();
+
+  const name = body.data.name;
+  const discordUser = body.member?.user || body.user;
+  const userId = discordUser.id;
+  const username = discordUser.username;
+  const guildId = body.guild_id;
+
+  try {
 
     if (name === "about") {
       return res.status(200).json({
@@ -152,9 +165,7 @@ export default async function handler(req, res) {
               color: 0x3a3b40,
               title: "How to Play",
               description:
-                "To start playing, an admin must use /settings and pick a name for your community. Then take turns clicking the button to keep playing.\n\n" +
-                "Support https://discord.gg/4rv6P8xF8U\n" +
-                "Invite https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands",
+                "To start playing, an admin must use /settings and pick a name for your community. Then take turns clicking the button to keep playing.\n\nSupport https://discord.gg/4rv6P8xF8U\nInvite https://discord.com/oauth2/authorize?client_id=1480495380041961483&permissions=8&integration_type=0&scope=bot+applications.commands",
               footer: { text: "This bot was made by sremn" }
             }
           ]
@@ -166,12 +177,15 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          flags: 64,
           embeds: [
             {
-              color: 0x3a3b40,
+              color: 0x7e73ff,
+              title: "Tools & Info",
               description:
-                "If you are looking for information about how the bot works or the command list use the about command."
+                "Helpful tools and information commands.\n\nUse `/help [command]` for more details.\n\n`/about`\n`/help`\n`/balance`\n`/daily`\n`/mine`\n`/gamble`\n`/give`\n`/leaderboard`",
+              image: {
+                url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png?ex=69b65c41&is=69b50ac1&hm=dedf983c9ea6c80b71f90002add39e7f3ccc8d39667047cf88f6e91539ee5015&"
+              }
             }
           ]
         }
@@ -180,55 +194,37 @@ export default async function handler(req, res) {
 
     if (name === "balance") {
       const user = await getUser(userId, username, guildId);
+
       return res.status(200).json({
         type: 4,
         data: {
-          flags: 64,
-          embeds: [
-            {
-              color: 0xac78f3,
-              description: `${username}'s Balance: ${user.balance.toLocaleString()}`
-            }
-          ]
+          content: `${username}'s Balance: ${user.balance.toLocaleString()}`
         }
       });
     }
 
     if (name === "daily") {
       const user = await getUser(userId, username, guildId);
-      const cooldown = 86400000;
-      const left = cooldownLeft(user.lastDaily, cooldown);
+      const left = cooldownLeft(user.lastDaily, DAILY_COOLDOWN);
 
       if (left > 0) {
         return res.status(200).json({
           type: 4,
           data: {
-            flags: 64,
-            embeds: [
-              {
-                color: 0xff4444,
-                title: "Daily Already Claimed",
-                description: `Come back in ${formatTime(left)}`
-              }
-            ]
+            content: `You already claimed your daily reward. Come back in ${formatTime(left)}`
           }
         });
       }
 
       const reward = rand(150, 350);
-      await safeBalanceUpdate(userId, guildId, reward);
+
+      await changeBalance(userId, guildId, reward);
       await setField(userId, guildId, "lastDaily", new Date());
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0x57f287,
-              title: "Daily Reward",
-              description: `You received ${reward}`
-            }
-          ]
+          content: `You claimed your daily reward of \`${reward.toLocaleString()}\` coins!`
         }
       });
     }
@@ -241,210 +237,117 @@ export default async function handler(req, res) {
         return res.status(200).json({
           type: 4,
           data: {
-            flags: 64,
-            embeds: [
-              {
-                color: 0xff4444,
-                title: "Mining Cooldown",
-                description: `Mine again in ${formatTime(left)}`
-              }
-            ]
+            content: `Mine again in ${formatTime(left)}`
           }
         });
       }
 
       const gem = rollMine();
-      await safeBalanceUpdate(userId, guildId, gem.coins);
+
+      await changeBalance(userId, guildId, gem.coins);
       await setField(userId, guildId, "lastMine", new Date());
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0xfaa61a,
-              title: "Mining Results",
-              description: `You found ${gem.name} worth ${gem.coins}`
-            }
-          ]
+          content: `You found ${gem.name} worth ${gem.coins}`
         }
       });
     }
 
     if (name === "gamble") {
       const user = await getUser(userId, username, guildId);
-      const betOption = body.data.options?.find(o => o.name === "amount");
-      const bet = betOption ? parseInt(betOption.value) : 0;
+
+      const bet = parseInt(
+        body.data.options?.find(o => o.name === "amount")?.value || 0
+      );
 
       if (!bet || bet <= 0) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid bet amount" }] }
+          data: { content: "Invalid bet amount" }
         });
       }
 
       if (bet > user.balance) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Not enough coins" }] }
+          data: { content: "Not enough coins" }
         });
       }
 
       const { result, multiplier } = doGamble();
+
       const winnings = bet * multiplier;
       const net = winnings - bet;
 
-      await safeBalanceUpdate(userId, guildId, net);
-
-      let title, color, desc;
+      await changeBalance(userId, guildId, net);
 
       if (result === "jackpot") {
-        title = "Jackpot";
-        color = 0xffd700;
-        desc = `You won ${winnings}`;
-      } else if (result === "win") {
-        title = "You Won";
-        color = 0x57f287;
-        desc = `You doubled to ${winnings}`;
-      } else {
-        title = "You Lost";
-        color = 0xff4444;
-        desc = `Lost ${bet}`;
+        return res.status(200).json({
+          type: 4,
+          data: { content: `Jackpot. You won ${winnings}` }
+        });
       }
 
-      return res.status(200).json({ type: 4, data: { embeds: [{ color, title, description: desc }] } });
+      if (result === "win") {
+        return res.status(200).json({
+          type: 4,
+          data: { content: `You doubled to ${winnings}` }
+        });
+      }
+
+      return res.status(200).json({
+        type: 4,
+        data: { content: `You lost ${bet}` }
+      });
     }
 
     if (name === "give") {
       const user = await getUser(userId, username, guildId);
-      const targetOption = body.data.options?.find(o => o.name === "user");
-      const amountOption = body.data.options?.find(o => o.name === "amount");
 
-      if (!targetOption || !amountOption) {
+      const targetId = body.data.options?.find(o => o.name === "user")?.value;
+      const amount = parseInt(
+        body.data.options?.find(o => o.name === "amount")?.value || 0
+      );
+
+      if (!targetId || amount <= 0) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Invalid command usage" }] }
-        });
-      }
-
-      const targetId = targetOption.value;
-      const amount = parseInt(amountOption.value);
-
-      if (amount <= 0) {
-        return res.status(200).json({
-          type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "Amount must be greater than 0" }] }
+          data: { content: "Invalid usage" }
         });
       }
 
       if (targetId === userId) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You cannot give coins to yourself" }] }
+          data: { content: "You cannot give coins to yourself" }
         });
       }
 
       if (amount > user.balance) {
         return res.status(200).json({
           type: 4,
-          data: { flags: 64, embeds: [{ color: 0xff4444, description: "You don't have enough coins" }] }
+          data: { content: "You do not have enough coins" }
         });
       }
 
-      await safeBalanceUpdate(userId, guildId, -amount);
-      await safeBalanceUpdate(targetId, guildId, amount);
+      await changeBalance(userId, guildId, -amount);
+      await changeBalance(targetId, guildId, amount);
 
       return res.status(200).json({
         type: 4,
         data: {
-          embeds: [
-            {
-              color: 0x57f287,
-              title: "Coins Sent",
-              description: `You gave ${amount.toLocaleString()} to <@${targetId}>`
-            }
-          ]
+          content: `You gave ${amount.toLocaleString()} to <@${targetId}>`
         }
       });
     }
 
-    if (name === "fuckoff") {
-  const OWNER_ID = "783891446905438260";
-
-  if (userId !== OWNER_ID) {
-    return res.status(200).json({
-      type: 4,
-      data: {
-        flags: 64,
-        embeds: [
-          {
-            color: 0xff4444,
-            description: "You are not allowed to use this command"
-          }
-        ]
-      }
-    });
-  }
-
-  const targetOption = body.data.options?.find(o => o.name === "user");
-  const amountOption = body.data.options?.find(o => o.name === "amount");
-
-  if (!targetOption || !amountOption) {
-    return res.status(200).json({
-      type: 4,
-      data: {
-        flags: 64,
-        embeds: [
-          {
-            color: 0xff4444,
-            description: "Invalid command usage"
-          }
-        ]
-      }
-    });
-  }
-
-  const targetId = targetOption.value;
-  const amount = parseInt(amountOption.value);
-
-  if (!amount || amount <= 0) {
-    return res.status(200).json({
-      type: 4,
-      data: {
-        flags: 64,
-        embeds: [
-          {
-            color: 0xff4444,
-            description: "Amount must be greater than 0"
-          }
-        ]
-      }
-    });
-  }
-
-  await getUser(targetId, "User", guildId);
-  await safeBalanceUpdate(targetId, guildId, amount);
-
-  return res.status(200).json({
-    type: 4,
-    data: {
-      flags: 64,
-      embeds: [
-        {
-          color: 0x57f287,
-          title: "Coins Granted",
-          description: `<@${targetId}> received ${amount.toLocaleString()} coins`
-        }
-      ]
-    }
-  });
-}
-
     if (name === "leaderboard") {
-      const db = await getDB();
-      const usersCollection = db.collection("users");
+      const database = await getDB();
+      const users = database.collection("users");
 
-      const topUsers = await usersCollection
+      const topUsers = await users
         .find({ guildId })
         .sort({ balance: -1 })
         .limit(10)
@@ -454,14 +357,13 @@ export default async function handler(req, res) {
 
       for (let i = 0; i < topUsers.length; i++) {
         const u = topUsers[i];
-        const coins = u.balance || 0;
-        rows += `${i + 1}. <@${u.userId}> - Coins \`${coins.toLocaleString()}\`\n`;
+        rows += `${i + 1}. <@${u.userId}> - ${u.balance.toLocaleString()}\n`;
       }
 
       const currentUser = await getUser(userId, username, guildId);
 
       const rank =
-        (await usersCollection.countDocuments({
+        (await users.countDocuments({
           guildId,
           balance: { $gt: currentUser.balance }
         })) + 1;
@@ -471,15 +373,23 @@ export default async function handler(req, res) {
         data: {
           embeds: [
             {
-              color: 0x3a3b40,
               title: "Leaderboard",
-              description: `${rows}\n-# You are currently ranked **#${rank}**!`
+              description: `${rows}\nYou are ranked #${rank}`
             }
           ]
         }
       });
     }
 
-    return res.status(200).json({ type: 4, data: { content: "Unknown command" } });
+    return res.status(200).json({
+      type: 4,
+      data: { content: "Unknown command" }
+    });
+
+  } catch {
+    return res.status(200).json({
+      type: 4,
+      data: { content: "Internal error" }
+    });
   }
 }
