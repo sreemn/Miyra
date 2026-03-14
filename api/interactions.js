@@ -433,7 +433,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          content: `You cooked and won ${reward.toLocaleString()} cookies! 🔥`
+          content: `You cooked and won \`${reward.toLocaleString()}\` cookies! 🔥`
         }
       });
     } else {
@@ -442,7 +442,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         type: 4,
         data: {
-          content: `Your cookies burned... you lost ${amount.toLocaleString()} cookies. 🔥`
+          content: `Your cookies burned... you lost \`${amount.toLocaleString()}\` cookies. 🔥`
         }
       });
     }
