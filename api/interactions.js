@@ -267,7 +267,8 @@ export default async function handler(req, res) {
       }
     });
   }
-if (name === "help") {
+
+  if (name === "help") {
 
   return res.status(200).json({
     type: 4,
@@ -276,8 +277,7 @@ if (name === "help") {
         {
           color: 0x3b9cff,
           author: {
-            name: "Fireside's Help Menu",
-            icon_url: `https://cdn.discordapp.com/avatars/${APP_ID}/${APP_ID}.png`
+            name: "Fireside's Help Menu"
           },
           description:
             "I'm a multi-purpose bot designed to be a helpful and fun companion for your server. Choose a feature from the dropdown below to see what I can do!\n\nUse `/help [command]` for more details.",
