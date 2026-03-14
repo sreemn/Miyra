@@ -475,31 +475,26 @@ if (name === "reset") {
   });
 }
 
-  if (name === "leaderboard") {
-    const db = await getDB();
-    const usersCollection = db.collection("users");
+if (name === "leaderboard") {
+  const db = await getDB();
+  const usersCollection = db.collection("users");
 
-    const topUsers = await usersCollection
-      .find({ guildId, balance: { $gt: 0 } })
-      .sort({ balance: -1 })
-      .limit(10)
-      .toArray();
+  const topUsers = await usersCollection
+    .find({ guildId, balance: { $gt: 0 } })
+    .sort({ balance: -1 })
+    .limit(10)
+    .toArray();
 
-    let rows = "";
+  let rows = "";
 
-    for (let i = 0; i < topUsers.length; i++) {
-      const u = topUsers[i];
-      rows += `${i + 1}. <@${u.userId}> - \`${u.balance.toLocaleString()}\`\n`;
-    }
+  for (let i = 0; i < topUsers.length; i++) {
+    const u = topUsers[i];
+    rows += `${i + 1}. <@${u.userId}> - \`${u.balance.toLocaleString()}\`\n`;
+  }
 
-    const currentUser = await getUser(userId, username, guildId);
+  const currentUser = await getUser(userId, username, guildId);
 
-    const rank =
-      (await usersCollection.countDocuments({
-        guildId,
-        balance: { $gt: currentUser.balance, $gt: 0 }
-       })) + 1;
-
+  if (currentUser.balance <= 0) {
     return res.status(200).json({
       type: 4,
       data: {
@@ -507,12 +502,32 @@ if (name === "reset") {
           {
             color: 0x3a3b40,
             title: "Leaderboard",
-            description: `${rows}\n-# You are currently ranked **#${rank}**!`
+            description: `${rows}\n-# Earn cookies to enter the leaderboard`
           }
         ]
       }
     });
   }
+
+  const rank =
+    (await usersCollection.countDocuments({
+      guildId,
+      balance: { $gt: currentUser.balance }
+    })) + 1;
+
+  return res.status(200).json({
+    type: 4,
+    data: {
+      embeds: [
+        {
+          color: 0x3a3b40,
+          title: "Leaderboard",
+          description: `${rows}\n-# You are currently ranked **#${rank}**!`
+        }
+      ]
+    }
+  });
+}
 
   return res.status(200).json({
     type: 4,
