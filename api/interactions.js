@@ -225,14 +225,9 @@ export default async function handler(req, res) {
     return res.status(200).json({
       type: 4,
       data: {
-        embeds: [
-          {
-            color: 0x57f287,
-            title: "Daily Reward",
-            description: `You received ${reward.toLocaleString()} coins`
-          }
-        ]
+        content: `You claimed your daily reward of \`${reward.toLocaleString()}\` coins! ✨`
       }
+    }
     });
   }
 
