@@ -216,7 +216,7 @@ if (name === "daily") {
       type: 4,
       data: {
         flags: 64,
-        content: `You already claimed your daily reward. Come back in ${formatTime(left)}`
+        content: `You already claimed your daily reward. Come back in \`${formatTime(left)}\``
       }
     });
   }
