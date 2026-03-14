@@ -93,12 +93,12 @@ function rand(min, max) {
 const MINE_COOLDOWN = 15000;
 
 const GEM_TABLE = [
-  { name: "Stone", coins: 3, chance: 30 },
-  { name: "Coal", coins: 8, chance: 25 },
-  { name: "Iron", coins: 20, chance: 20 },
-  { name: "Gold", coins: 50, chance: 13 },
-  { name: "Diamond", coins: 120, chance: 8 },
-  { name: "Stardust", coins: 300, chance: 4 }
+  { name: "Flour", cookies: 3, chance: 30 },
+  { name: "Milk", cookies: 8, chance: 25 },
+  { name: "Sugar", cookies: 20, chance: 20 },
+  { name: "Butter", cookies: 50, chance: 13 },
+  { name: "Chocolate Chips", cookies: 120, chance: 8 },
+  { name: "Vanilla Extract", cookies: 300, chance: 4 }
 ];
 
 function rollMine() {
@@ -197,43 +197,43 @@ export default async function handler(req, res) {
         embeds: [
           {
             color: 0xac78f3,
-            description: `${username}'s Balance: ${user.balance.toLocaleString()}`
+            description: `${username}'s Balance: ${user.balance.toLocaleString()} cookies 🍪`
           }
         ]
       }
     });
   }
 
-if (name === "daily") {
+  if (name === "daily") {
 
-  const user = await getUser(userId, username, guildId);
+    const user = await getUser(userId, username, guildId);
 
-  const cooldown = 86400000;
-  const left = cooldownLeft(user.lastDaily, cooldown);
+    const cooldown = 86400000;
+    const left = cooldownLeft(user.lastDaily, cooldown);
 
-  if (left > 0) {
+    if (left > 0) {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          flags: 64,
+          content: `You already claimed your daily reward. Come back in \`${formatTime(left)}\``
+        }
+      });
+    }
+
+    const reward = rand(2000, 3500);
+
+    await safeBalanceUpdate(userId, guildId, reward);
+    await setField(userId, guildId, "lastDaily", new Date());
+
     return res.status(200).json({
       type: 4,
       data: {
-        flags: 64,
-        content: `You already claimed your daily reward. Come back in \`${formatTime(left)}\``
+        content: `You claimed your daily reward of \`${reward.toLocaleString()}\` cookies! 🍪`
       }
     });
+
   }
-
-  const reward = rand(2000, 3500);
-
-  await safeBalanceUpdate(userId, guildId, reward);
-  await setField(userId, guildId, "lastDaily", new Date());
-
-  return res.status(200).json({
-    type: 4,
-    data: {
-      content: `You claimed your daily reward of \`${reward.toLocaleString()}\` coins! 🪙`
-    }
-  });
-
-}
 
   if (name === "mine") {
     const user = await getUser(userId, username, guildId);
@@ -242,18 +242,18 @@ if (name === "daily") {
     if (left > 0) {
       return res.status(200).json({
         type: 4,
-        data: { flags: 64, embeds: [{ color: 0xff4444, description: `Mine again in ${formatTime(left)}` }] }
+        data: { flags: 64, embeds: [{ color: 0xff4444, description: `Bake again in ${formatTime(left)}` }] }
       });
     }
 
     const gem = rollMine();
 
-    await safeBalanceUpdate(userId, guildId, gem.coins);
+    await safeBalanceUpdate(userId, guildId, gem.cookies);
     await setField(userId, guildId, "lastMine", new Date());
 
     return res.status(200).json({
       type: 4,
-      data: { embeds: [{ color: 0xfaa61a, description: `You found ${gem.name} worth ${gem.coins}` }] }
+      data: { embeds: [{ color: 0xfaa61a, description: `You found ${gem.name} worth ${gem.cookies} cookies 🍪` }] }
     });
   }
 
@@ -271,7 +271,7 @@ if (name === "daily") {
 
     for (let i = 0; i < topUsers.length; i++) {
       const u = topUsers[i];
-      rows += `${i + 1}. <@${u.userId}> - Coins \`${u.balance.toLocaleString()}\`\n`;
+      rows += `${i + 1}. <@${u.userId}> - 🍪 \`${u.balance.toLocaleString()}\`\n`;
     }
 
     const currentUser = await getUser(userId, username, guildId);
