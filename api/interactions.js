@@ -194,33 +194,26 @@ export default async function handler(req, res) {
       });
     }
 
-if (name === "daily") {
-  const user = await getUser(userId, username, guildId);
-  const cooldown = 86400000;
-  const left = cooldownLeft(user.lastDaily, cooldown);
+    if (name === "daily") {
+      const user = await getUser(userId, username, guildId);
+      const cooldown = 86400000;
+      const left = cooldownLeft(user.lastDaily, cooldown);
 
-  if (left > 0) {
-    return res.status(200).json({
-      type: 4,
-      data: {
-        flags: 64,
-        content: `⏳ You already claimed your daily reward. Come back in ${formatTime(left)}`
+      if (left > 0) {
+        return res.status(200).json({
+          type: 4,
+          data: {
+            flags: 64,
+            embeds: [
+              {
+                color: 0xff4444,
+                title: "Daily Already Claimed",
+                description: `Come back in ${formatTime(left)}`
+              }
+            ]
+          }
+        });
       }
-    });
-  }
-
-  const reward = rand(150, 350);
-
-  await safeBalanceUpdate(userId, guildId, reward);
-  await setField(userId, guildId, "lastDaily", new Date());
-
-  return res.status(200).json({
-    type: 4,
-    data: {
-      content: `You claimed your daily reward of ${reward.toLocaleString()} coins! ✨`
-    }
-  });
-}
 
       const reward = rand(150, 350);
       await safeBalanceUpdate(userId, guildId, reward);
