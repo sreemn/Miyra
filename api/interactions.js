@@ -60,7 +60,7 @@ async function safeBalanceUpdate(userId, guildId, amount) {
 
   const newBalance = user.balance + amount;
   if (newBalance < 0) return;
-  if (newBalance > 1000000000) return;
+  if (newBalance > 1000000000000000000) return;
 
   await users.updateOne(
     { userId, guildId },
@@ -109,20 +109,11 @@ const INGREDIENT_TABLE = [
 function rollBake() {
   const roll = rand(1, 100);
   let cumulative = 0;
-
   for (const item of INGREDIENT_TABLE) {
     cumulative += item.chance;
     if (roll <= cumulative) return item;
   }
-
   return INGREDIENT_TABLE[0];
-}
-
-function doGamble() {
-  const roll = rand(1, 100);
-  if (roll <= 10) return { result: "jackpot", multiplier: 5 };
-  if (roll <= 45) return { result: "win", multiplier: 2 };
-  return { result: "lose", multiplier: 0 };
 }
 
 export default async function handler(req, res) {
@@ -240,6 +231,18 @@ export default async function handler(req, res) {
   if (name === "give") {
     const target = body.data.options.find(o => o.name === "user").value;
     const amount = body.data.options.find(o => o.name === "amount").value;
+
+    const targetUser = await fetch(
+      `https://discord.com/api/v10/users/${target}`,
+      { headers: { Authorization: `Bot ${BOT_TOKEN}` } }
+    ).then(r => r.json());
+
+    if (targetUser.bot) {
+      return res.status(200).json({
+        type: 4,
+        data: { content: "You cannot give cookies to bots." }
+      });
+    }
 
     if (target === userId) {
       return res.status(200).json({
@@ -401,6 +404,48 @@ export default async function handler(req, res) {
         ]
       }
     });
+  }
+
+  if (name === "cook") {
+    const amount = body.data.options.find(o => o.name === "amount").value;
+    const user = await getUser(userId, username, guildId);
+
+    if (amount <= 0) {
+      return res.status(200).json({
+        type: 4,
+        data: { content: "Amount must be greater than 0." }
+      });
+    }
+
+    if (user.balance < amount) {
+      return res.status(200).json({
+        type: 4,
+        data: { content: "You don't have enough cookies for that." }
+      });
+    }
+
+    const win = Math.random() < 0.5;
+
+    if (win) {
+      const reward = amount * 2;
+      await safeBalanceUpdate(userId, guildId, amount);
+
+      return res.status(200).json({
+        type: 4,
+        data: {
+          content: `You cooked and won ${reward.toLocaleString()} cookies! 🔥`
+        }
+      });
+    } else {
+      await safeBalanceUpdate(userId, guildId, -amount);
+
+      return res.status(200).json({
+        type: 4,
+        data: {
+          content: `Your cookies burned... you lost ${amount.toLocaleString()} cookies. 🔥`
+        }
+      });
+    }
   }
 
   if (name === "leaderboard") {
