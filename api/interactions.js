@@ -229,7 +229,7 @@ if (name === "daily") {
   return res.status(200).json({
     type: 4,
     data: {
-      content: `You claimed your daily reward of \`${reward.toLocaleString()}\` coins! ✨`
+      content: `You claimed your daily reward of \`${reward.toLocaleString()}\` coins! 🪙`
     }
   });
 
