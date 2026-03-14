@@ -32,7 +32,7 @@ async function getUser(userId, username, guildId) {
       username,
       balance: 100,
       lastDaily: null,
-      lastMine: null,
+      lastBake: null,
       createdAt: new Date()
     };
     await users.insertOne(user);
@@ -90,9 +90,9 @@ function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const MINE_COOLDOWN = 15000;
+const BAKE_COOLDOWN = 15000;
 
-const GEM_TABLE = [
+const INGREDIENT_TABLE = [
   { name: "Flour", cookies: 3, chance: 30 },
   { name: "Milk", cookies: 8, chance: 25 },
   { name: "Sugar", cookies: 20, chance: 20 },
@@ -101,16 +101,16 @@ const GEM_TABLE = [
   { name: "Vanilla Extract", cookies: 300, chance: 4 }
 ];
 
-function rollMine() {
+function rollBake() {
   const roll = rand(1, 100);
   let cumulative = 0;
 
-  for (const gem of GEM_TABLE) {
-    cumulative += gem.chance;
-    if (roll <= cumulative) return gem;
+  for (const item of INGREDIENT_TABLE) {
+    cumulative += item.chance;
+    if (roll <= cumulative) return item;
   }
 
-  return GEM_TABLE[0];
+  return INGREDIENT_TABLE[0];
 }
 
 function doGamble() {
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
             color: 0x7e73ff,
             title: "Tools & Info",
             description:
-              "/about\n/help\n/balance\n/daily\n/mine\n/work\n/gamble\n/give\n/deposit\n/withdraw\n/rob\n/leaderboard\n/shop\n/buy\n/inventory",
+              "/about\n/help\n/balance\n/daily\n/bake\n/work\n/gamble\n/give\n/deposit\n/withdraw\n/rob\n/leaderboard\n/shop\n/buy\n/inventory",
             image: { url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png" }
           }
         ]
@@ -216,7 +216,7 @@ export default async function handler(req, res) {
         type: 4,
         data: {
           flags: 64,
-          content: `You already claimed your daily reward. Come back in \`${formatTime(left)}\``
+          content: `Hold your horses! You can use that command again in \`${formatTime(left)}\``
         }
       });
     }
@@ -235,9 +235,9 @@ export default async function handler(req, res) {
 
   }
 
-  if (name === "mine") {
+  if (name === "bake") {
     const user = await getUser(userId, username, guildId);
-    const left = cooldownLeft(user.lastMine, MINE_COOLDOWN);
+    const left = cooldownLeft(user.lastBake, BAKE_COOLDOWN);
 
     if (left > 0) {
       return res.status(200).json({
@@ -246,14 +246,14 @@ export default async function handler(req, res) {
       });
     }
 
-    const gem = rollMine();
+    const item = rollBake();
 
-    await safeBalanceUpdate(userId, guildId, gem.cookies);
-    await setField(userId, guildId, "lastMine", new Date());
+    await safeBalanceUpdate(userId, guildId, item.cookies);
+    await setField(userId, guildId, "lastBake", new Date());
 
     return res.status(200).json({
       type: 4,
-      data: { embeds: [{ color: 0xfaa61a, description: `You found ${gem.name} worth ${gem.cookies} cookies 🍪` }] }
+      data: { embeds: [{ color: 0xfaa61a, description: `You baked and found ${item.name} worth ${item.cookies} cookies 🍪` }] }
     });
   }
 
