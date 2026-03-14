@@ -192,7 +192,8 @@ export default async function handler(req, res) {
                 "**/mine** - Mine for resources to earn coins.\n" +
                 "**/gamble** - Bet coins for a chance to win more.\n" +
                 "**/give** - Send coins to another user.\n" +
-                "**/leaderboard** - View the richest users in the server.",
+                "**/leaderboard** - View the richest users in the server.\n" +
+                "**/reset** - Reset the leaderboard for this server.",
               image: {
                 url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png?ex=69b65c41&is=69b50ac1&hm=dedf983c9ea6c80b71f90002add39e7f3ccc8d39667047cf88f6e91539ee5015&"
               }
@@ -339,6 +340,17 @@ export default async function handler(req, res) {
             }
           ]
         }
+      });
+    }
+
+    if (name === "reset") {
+      const database = await getDB();
+      await database.collection("users").deleteMany({ guildId });
+
+      return res.status(200).json({
+        type: 4,
+        data: { content: "Leaderboard has been reset for this server" },
+        flags: 64
       });
     }
 
