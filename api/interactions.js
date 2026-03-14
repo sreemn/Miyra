@@ -182,7 +182,15 @@ export default async function handler(req, res) {
               color: 0x7e73ff,
               title: "Tools & Info",
               description:
-                "Helpful tools and information commands.\n\nUse `/help [command]` for more details.\n\n`/about`\n`/help`\n`/balance`\n`/daily`\n`/mine`\n`/gamble`\n`/give`\n`/leaderboard`",
+                "Helpful tools and information commands.\n\nUse `/help [command]` for more details.\n\n" +
+                "**/about** - Shows information about the bot and how it works.\n" +
+                "**/help** - Displays the help menu with all available commands.\n" +
+                "**/balance** - Check your current coin balance.\n" +
+                "**/daily** - Claim your daily coin reward.\n" +
+                "**/mine** - Mine for resources to earn coins.\n" +
+                "**/gamble** - Bet coins for a chance to win more.\n" +
+                "**/give** - Send coins to another user.\n" +
+                "**/leaderboard** - View the richest users in the server.",
               image: {
                 url: "https://cdn.discordapp.com/attachments/1482244165114007582/1482275630170112000/Tools.png?ex=69b65c41&is=69b50ac1&hm=dedf983c9ea6c80b71f90002add39e7f3ccc8d39667047cf88f6e91539ee5015&"
               }
@@ -194,7 +202,6 @@ export default async function handler(req, res) {
 
     if (name === "balance") {
       const user = await getUser(userId, username, guildId);
-
       return res.status(200).json({
         type: 4,
         data: {
@@ -217,7 +224,6 @@ export default async function handler(req, res) {
       }
 
       const reward = rand(150, 350);
-
       await changeBalance(userId, guildId, reward);
       await setField(userId, guildId, "lastDaily", new Date());
 
@@ -236,100 +242,64 @@ export default async function handler(req, res) {
       if (left > 0) {
         return res.status(200).json({
           type: 4,
-          data: {
-            content: `Mine again in ${formatTime(left)}`
-          }
+          data: { content: `Mine again in ${formatTime(left)}` }
         });
       }
 
       const gem = rollMine();
-
       await changeBalance(userId, guildId, gem.coins);
       await setField(userId, guildId, "lastMine", new Date());
 
       return res.status(200).json({
         type: 4,
-        data: {
-          content: `You found ${gem.name} worth ${gem.coins}`
-        }
+        data: { content: `You found ${gem.name} worth ${gem.coins}` }
       });
     }
 
     if (name === "gamble") {
       const user = await getUser(userId, username, guildId);
-
-      const bet = parseInt(
-        body.data.options?.find(o => o.name === "amount")?.value || 0
-      );
+      const bet = parseInt(body.data.options?.find(o => o.name === "amount")?.value || 0);
 
       if (!bet || bet <= 0) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Invalid bet amount" }
-        });
+        return res.status(200).json({ type: 4, data: { content: "Invalid bet amount" } });
       }
 
       if (bet > user.balance) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Not enough coins" }
-        });
+        return res.status(200).json({ type: 4, data: { content: "Not enough coins" } });
       }
 
       const { result, multiplier } = doGamble();
-
       const winnings = bet * multiplier;
       const net = winnings - bet;
 
       await changeBalance(userId, guildId, net);
 
       if (result === "jackpot") {
-        return res.status(200).json({
-          type: 4,
-          data: { content: `Jackpot. You won ${winnings}` }
-        });
+        return res.status(200).json({ type: 4, data: { content: `Jackpot. You won ${winnings}` } });
       }
 
       if (result === "win") {
-        return res.status(200).json({
-          type: 4,
-          data: { content: `You doubled to ${winnings}` }
-        });
+        return res.status(200).json({ type: 4, data: { content: `You doubled to ${winnings}` } });
       }
 
-      return res.status(200).json({
-        type: 4,
-        data: { content: `You lost ${bet}` }
-      });
+      return res.status(200).json({ type: 4, data: { content: `You lost ${bet}` } });
     }
 
     if (name === "give") {
       const user = await getUser(userId, username, guildId);
-
       const targetId = body.data.options?.find(o => o.name === "user")?.value;
-      const amount = parseInt(
-        body.data.options?.find(o => o.name === "amount")?.value || 0
-      );
+      const amount = parseInt(body.data.options?.find(o => o.name === "amount")?.value || 0);
 
       if (!targetId || amount <= 0) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "Invalid usage" }
-        });
+        return res.status(200).json({ type: 4, data: { content: "Invalid usage" } });
       }
 
       if (targetId === userId) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "You cannot give coins to yourself" }
-        });
+        return res.status(200).json({ type: 4, data: { content: "You cannot give coins to yourself" } });
       }
 
       if (amount > user.balance) {
-        return res.status(200).json({
-          type: 4,
-          data: { content: "You do not have enough coins" }
-        });
+        return res.status(200).json({ type: 4, data: { content: "You do not have enough coins" } });
       }
 
       await changeBalance(userId, guildId, -amount);
@@ -337,9 +307,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         type: 4,
-        data: {
-          content: `You gave ${amount.toLocaleString()} to <@${targetId}>`
-        }
+        data: { content: `You gave ${amount.toLocaleString()} to <@${targetId}>` }
       });
     }
 
@@ -354,7 +322,6 @@ export default async function handler(req, res) {
         .toArray();
 
       let rows = "";
-
       for (let i = 0; i < topUsers.length; i++) {
         const u = topUsers[i];
         rows += `${i + 1}. <@${u.userId}> - ${u.balance.toLocaleString()}\n`;
