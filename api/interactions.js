@@ -474,7 +474,6 @@ if (name === "reset") {
     }
   });
 }
-
 if (name === "leaderboard") {
   res.status(200).json({ type: 5 });
 
@@ -512,11 +511,10 @@ if (name === "leaderboard") {
     }
 
     await fetch(
-      `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}`,
+      `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`,
       {
         method: "PATCH",
         headers: {
-          Authorization: `Bot ${BOT_TOKEN}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
