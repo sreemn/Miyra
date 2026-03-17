@@ -476,68 +476,68 @@ if (name === "reset") {
 }
 
 if (name === "leaderboard") {
-  const db = await getDB();
-  const usersCollection = db.collection("users");
+  res.status(200).json({ type: 5 });
 
-  const topUsers = await usersCollection
-    .find({ guildId, balance: { $gt: 0 } })
-    .sort({ balance: -1 })
-    .limit(10)
-    .toArray();
+  (async () => {
+    const db = await getDB();
+    const usersCollection = db.collection("users");
 
-  let rows = "";
+    const topUsers = await usersCollection
+      .find({ guildId, balance: { $gt: 0 } })
+      .sort({ balance: -1 })
+      .limit(10)
+      .toArray();
 
-  for (let i = 0; i < topUsers.length; i++) {
-    const u = topUsers[i];
-    rows += `${i + 1}. <@${u.userId}> ・ \`${u.balance.toLocaleString()}\` 🍪\n`;
-  }
+    let rows = "";
 
-  const currentUser = await getUser(userId, username, guildId);
+    for (let i = 0; i < topUsers.length; i++) {
+      const u = topUsers[i];
+      rows += `${i + 1}. <@${u.userId}> ・ \`${u.balance.toLocaleString()}\` 🍪\n`;
+    }
 
-  let footerText = "";
+    const currentUser = await getUser(userId, username, guildId);
 
-  if (!currentUser || currentUser.balance <= 0) {
-    footerText = "You are not ranked yet.";
-  } else {
-    const rank =
-      (await usersCollection.countDocuments({
-        guildId,
-        balance: { $gt: currentUser.balance }
-      })) + 1;
+    let footerText = "";
 
-    footerText = `-# You are ranked #${rank} with a score of \`${currentUser.balance.toLocaleString()}\` 🍪.`;
-  }
+    if (!currentUser || currentUser.balance <= 0) {
+      footerText = "You are not ranked yet.";
+    } else {
+      const rank =
+        (await usersCollection.countDocuments({
+          guildId,
+          balance: { $gt: currentUser.balance }
+        })) + 1;
 
-  return res.status(200).json({
-    type: 4,
-    data: {
-      components: [
-        {
-          type: 17,
+      footerText = `-# You are ranked #${rank} with a score of \`${currentUser.balance.toLocaleString()}\` 🍪.`;
+    }
+
+    await fetch(
+      `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bot ${BOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
           components: [
             {
-              type: 10,
-              content: "# Leaderboard"
-            },
-            {
-              type: 14
-            },
-            {
-              type: 10,
-              content: rows || "*No one is ranked yet.*"
-            },
-            {
-              type: 14
-            },
-            {
-              type: 10,
-              content: footerText
+              type: 17,
+              components: [
+                { type: 10, content: "# Leaderboard" },
+                { type: 14 },
+                { type: 10, content: rows || "*No one is ranked yet.*" },
+                { type: 14 },
+                { type: 10, content: footerText }
+              ]
             }
           ]
-        }
-      ]
-    }
-  });
+        })
+      }
+    );
+  })();
+
+  return;
 }
 
   return res.status(200).json({
