@@ -380,7 +380,7 @@ export default async function handler(req, res) {
           flags: 64,
           embeds: [
             {
-              color: 0xffeab7,
+              color: 0xBD9881,
               description: `Bake again in ${formatTime(left)}`
             }
           ]
@@ -398,7 +398,7 @@ export default async function handler(req, res) {
       data: {
         embeds: [
           {
-            color: 0xffeab7,
+            color: 0xBD9881,
             description: `You baked and found ${item.name} worth ${item.cookies} cookies 🍪`
           }
         ]
