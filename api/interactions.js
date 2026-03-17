@@ -491,9 +491,9 @@ if (name === "leaderboard") {
       data: {
         embeds: [
           {
-            color: 0x3a3b40,
+            color: 0x2b2d31,
             title: "Leaderboard",
-            description: "No one was ranked."
+            description: "No one is ranked yet."
           }
         ]
       }
@@ -503,40 +503,27 @@ if (name === "leaderboard") {
   let rows = "";
   for (let i = 0; i < topUsers.length; i++) {
     const u = topUsers[i];
-    rows += `${i + 1}. <@${u.userId}> • \`${u.balance.toLocaleString()}\` <:Candy:1483435884358664293>\n`;
+    rows += `**${i + 1}.** <@${u.userId}> • \`${u.balance.toLocaleString()}\` <:Candy:1483435884358664293>\n`;
   }
 
   const currentUser = await getUser(userId, username, guildId);
 
+  let footerText = "";
+
   if (currentUser.balance <= 0) {
-    return res.status(200).json({
-      type: 4,
-      data: {
-        embeds: [
-          {
-            color: 0x3a3b40,
-            title: "Leaderboard",
-            description: `${rows}\n\n-# You are not ranked yet.`
-          }
-        ]
-      }
-    });
-  }
-
-  const rank =
-    (await usersCollection.countDocuments({
-      guildId,
-      balance: { $gt: currentUser.balance }
-    })) + 1;
-
-  const isTop10 = rank <= 10;
-
-  let rankText = "";
-
-  if (isTop10) {
-    rankText = `-# Congratulations! You are currently ranked **#${rank}**!`;
+    footerText = "You are not ranked yet.";
   } else {
-    rankText = `-# You are ranked **#${rank}** <:Candy:1483435884358664293>.`;
+    const rank =
+      (await usersCollection.countDocuments({
+        guildId,
+        balance: { $gt: currentUser.balance }
+      })) + 1;
+
+    if (rank === 1) {
+      footerText = `Congratulations! You are currently ranked #${rank}!`;
+    } else {
+      footerText = `You are ranked #${rank} <:Candy:1483435884358664293>.`;
+    }
   }
 
   return res.status(200).json({
@@ -544,10 +531,17 @@ if (name === "leaderboard") {
     data: {
       embeds: [
         {
-          color: 0x3a3b40,
+          color: 0x2b2d31,
           title: "Leaderboard",
-          description: `${rows}\n${rankText}`
+          description: rows,
+          footer: {
+            text: footerText
+          }
         }
+      ],
+      components: [
+        { type: 14 },
+        { type: 14 }
       ]
     }
   });
