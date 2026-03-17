@@ -478,80 +478,79 @@ if (name === "reset") {
 if (name === "leaderboard") {
   res.status(200).json({ type: 5 });
 
-  setTimeout(async () => {
-    try {
-      const db = await getDB();
-      const usersCollection = db.collection("users");
+  try {
+    const db = await getDB();
+    const usersCollection = db.collection("users");
 
-      const topUsers = await usersCollection
-        .find({ guildId, balance: { $gt: 0 } })
-        .sort({ balance: -1 })
-        .limit(10)
-        .toArray();
+    const topUsers = await usersCollection
+      .find({ guildId, balance: { $gt: 0 } })
+      .sort({ balance: -1 })
+      .limit(10)
+      .toArray();
 
-      let rows = "";
+    let rows = "";
 
-      for (let i = 0; i < topUsers.length; i++) {
-        const u = topUsers[i];
-        rows += `${i + 1}. <@${u.userId}> ・ \`${u.balance.toLocaleString()}\` 🍪\n`;
-      }
-
-      const currentUser = await getUser(userId, username, guildId);
-
-      let footerText = "";
-
-      if (!currentUser || currentUser.balance <= 0) {
-        footerText = "You are not ranked yet.";
-      } else {
-        const rank =
-          (await usersCollection.countDocuments({
-            guildId,
-            balance: { $gt: currentUser.balance }
-          })) + 1;
-
-        footerText = `-# You are ranked #${rank} with a score of \`${currentUser.balance.toLocaleString()}\` 🍪.`;
-      }
-
-      await fetch(
-        `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            components: [
-              {
-                type: 17,
-                components: [
-                  { type: 10, content: "# Leaderboard" },
-                  { type: 14 },
-                  { type: 10, content: rows || "*No one is ranked yet.*" },
-                  { type: 14 },
-                  { type: 10, content: footerText }
-                ]
-              }
-            ]
-          })
-        }
-      );
-    } catch (err) {
-      console.error(err);
-
-      await fetch(
-        `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            content: "Something went wrong while loading the leaderboard."
-          })
-        }
-      );
+    for (let i = 0; i < topUsers.length; i++) {
+      const u = topUsers[i];
+      rows += `${i + 1}. <@${u.userId}> ・ \`${u.balance.toLocaleString()}\` 🍪\n`;
     }
-  }, 0);
+
+    const currentUser = await getUser(userId, username, guildId);
+
+    let footerText = "";
+
+    if (!currentUser || currentUser.balance <= 0) {
+      footerText = "You are not ranked yet.";
+    } else {
+      const rank =
+        (await usersCollection.countDocuments({
+          guildId,
+          balance: { $gt: currentUser.balance }
+        })) + 1;
+
+      footerText = `-# You are ranked #${rank} with a score of \`${currentUser.balance.toLocaleString()}\` 🍪.`;
+    }
+
+    await fetch(
+      `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: "",
+          components: [
+            {
+              type: 17,
+              components: [
+                { type: 10, content: "# Leaderboard" },
+                { type: 14 },
+                { type: 10, content: rows || "*No one is ranked yet.*" },
+                { type: 14 },
+                { type: 10, content: footerText }
+              ]
+            }
+          ]
+        })
+      }
+    );
+  } catch (err) {
+    console.error("LEADERBOARD ERROR:", err);
+
+    await fetch(
+      `https://discord.com/api/v10/webhooks/${APP_ID}/${body.token}/messages/@original`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: "Failed to load leaderboard."
+        })
+      }
+    );
+  }
 
   return;
 }
