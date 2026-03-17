@@ -529,7 +529,15 @@ if (name === "leaderboard") {
       balance: { $gt: currentUser.balance }
     })) + 1;
 
-  const rankText = `-# You are ranked **#${rank}**!`;
+  const isTop10 = rank <= 10;
+
+  let rankText = "";
+
+  if (isTop10) {
+    rankText = `-# Congratulations! You are currently ranked **#${rank}**!`;
+  } else {
+    rankText = `-# You are ranked **#${rank}** with a score of ${currentUser.balance.toLocaleString()} <:Candy:1483435884358664293>.`;
+  }
 
   return res.status(200).json({
     type: 4,
