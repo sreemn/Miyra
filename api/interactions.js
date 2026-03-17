@@ -168,7 +168,7 @@ export default async function handler(req, res) {
             title: "About Fireside",
             description: "I'm a multipurpose Discord bot designed to make your server more fun and engaging!",
             fields: [
-              { name: "Developer", value: "Sreeman", inline: true },
+              { name: "Developer", value: "[sreeman](https://discord.com/users/783891446905438260)", inline: true },
               { name: "Website", value: "[fireside.bot](https://fireside.bot)", inline: true }
             ],
             footer: { text: `Serving ${guildCount} guilds and ${userCount} users` }
