@@ -215,7 +215,7 @@ export default async function handler(req, res) {
       data: {
         embeds: [
           {
-            color: 0x7da1f5,
+            color: 0x36454F,
             author: { name: "Fireside's Help Menu" },
             description:
               "I'm a multi-purpose bot designed to be a helpful and fun companion for your server. Choose a feature from the dropdown below to see what I can do!\n\nUse `/help [command]` for more details.",
