@@ -164,7 +164,7 @@ export default async function handler(req, res) {
       data: {
         embeds: [
           {
-            color: 0x3b9cff,
+            color: 0x93d2fd,
             title: "About Fireside",
             description: "I'm a multipurpose Discord bot designed to make your server more fun and engaging!",
             fields: [
@@ -215,7 +215,7 @@ export default async function handler(req, res) {
       data: {
         embeds: [
           {
-            color: 0x3b9cff,
+            color: 0x7da1f5,
             author: { name: "Fireside's Help Menu" },
             description:
               "I'm a multi-purpose bot designed to be a helpful and fun companion for your server. Choose a feature from the dropdown below to see what I can do!\n\nUse `/help [command]` for more details.",
