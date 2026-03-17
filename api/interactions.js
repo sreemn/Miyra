@@ -177,7 +177,8 @@ export default async function handler(req, res) {
       }
     });
   }
-if (name === "ping") {
+
+  if (name === "ping") {
   const start = Date.now();
 
   await fetch("https://discord.com/api/v10/gateway");
@@ -200,7 +201,10 @@ if (name === "ping") {
   return res.status(200).json({
     type: 4,
     data: {
-      content:
+      embeds: [
+        {
+          color: 0xC0EEFF,
+          description:
 `**Pong!**
 data applies to this runtime instance
 
@@ -208,6 +212,8 @@ data applies to this runtime instance
 > uptime    ${uptime}  
 > region    ${region}  
 > version   ${version}`
+        }
+      ]
     }
   });
 }
