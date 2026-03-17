@@ -380,7 +380,7 @@ export default async function handler(req, res) {
           flags: 64,
           embeds: [
             {
-              color: 0xBD9881,
+              color: 0xD1ACA5,
               description: `Bake again in ${formatTime(left)}`
             }
           ]
