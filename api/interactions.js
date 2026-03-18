@@ -523,7 +523,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
         embeds: [
           {
             color: 0xBD9881,
-            description: `You baked and found ${item.name} worth ${item.cookies} cookies 🍪`
+            description: `You baked and found ${item.name} worth ${item.cookies} trees <:tree:1483739101986291862>`
           }
         ]
       }
@@ -627,7 +627,7 @@ if (name === "leaderboard") {
   let rows = "";
   for (let i = 0; i < topUsers.length; i++) {
     const u = topUsers[i];
-    rows += `${i + 1}. <@${u.userId}> • \`${u.balance.toLocaleString()}\` <:Candy:1483435884358664293>\n`;
+    rows += `${i + 1}. <@${u.userId}> • \`${u.balance.toLocaleString()}\` <:tree:1483739101986291862>\n`;
   }
 
   const currentUser = await getUser(userId, username, guildId);
@@ -660,7 +660,7 @@ if (name === "leaderboard") {
   if (isTop10) {
     rankText = `-# Congratulations! You are currently ranked **#${rank}**!`;
   } else {
-    rankText = `-# You are ranked **#${rank}** <:Candy:1483435884358664293>.`;
+    rankText = `-# You are ranked **#${rank}** <:tree:1483739101986291862>.`;
   }
 
   return res.status(200).json({
