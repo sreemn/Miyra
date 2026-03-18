@@ -475,7 +475,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
         type: 4,
         data: {
           flags: 64,
-          content: `Hold your horses! You can use that command again in \`${formatTime(left)}\``
+          content: `The forest needs time to recover. Come back in \`${formatTime(left)}\``
         }
       });
     }
