@@ -319,7 +319,7 @@ if (name === "help") {
           },
           description: `you have blessed <@${target}> . . .
 
-${username} obtained **${reward}** <:mimu_star:YOUR_EMOJI_ID>`
+${username} obtained ${reward} <:star:1483739099558055986>`
         }
       ]
     }
