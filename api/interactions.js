@@ -39,6 +39,7 @@ async function getUser(userId, username, guildId) {
       transferDay: null,
       transferTotal: 0,
       lastTransferTime: null,
+      blessHistory: {},
       createdAt: new Date()
     };
     await users.insertOne(user);
@@ -103,6 +104,22 @@ function getNextResetTimestamp() {
   reset.setHours(5, 30, 0, 0);
   if (now >= reset) reset.setDate(reset.getDate() + 1);
   return Math.floor(reset.getTime() / 1000);
+}
+
+function isSameResetCycle(lastTime) {
+  if (!lastTime) return false;
+
+  const now = new Date();
+  const last = new Date(lastTime);
+
+  const getResetDay = (date) => {
+    const d = new Date(date);
+    d.setHours(5, 30, 0, 0);
+    if (date < d) d.setDate(d.getDate() - 1);
+    return d.toDateString();
+  };
+
+  return getResetDay(now) === getResetDay(last);
 }
 
 const INGREDIENT_TABLE = [
@@ -256,7 +273,7 @@ if (name === "help") {
   });
 }
 
-  if (name === "bless") {
+if (name === "bless") {
   const target = body.data.options.find(o => o.name === "user").value;
 
   const targetUser = await fetch(
@@ -265,43 +282,39 @@ if (name === "help") {
   ).then(r => r.json());
 
   const user = await getUser(userId, username, guildId);
-
-  const BLESS_COOLDOWN = 86400000;
-  const left = cooldownLeft(user.lastBless, BLESS_COOLDOWN);
-
-  if (left > 0) {
-    const ts = getNextResetTimestamp();
-
-    return res.status(200).json({
-      type: 4,
-      data: {
-        flags: 64,
-        content: `hmm… your energy needs time to recharge, you can bless again <t:${ts}:R>, resets at <t:${ts}:t>`
-      }
-    });
-  }
+  let history = user.blessHistory || {};
 
   if (target === userId) {
     return res.status(200).json({
       type: 4,
-      data: {
-        content: "you can't direct that energy inward, choose someone else"
-      }
+      data: { content: "you can't direct that energy inward, choose someone else" }
     });
   }
 
   if (targetUser.bot) {
     return res.status(200).json({
       type: 4,
-      data: {
-        content: "that energy won’t land, choose a different user"
-      }
+      data: { content: "that energy won’t land, choose a different user" }
     });
+  }
+
+  const lastBlessed = history[target];
+
+  if (lastBlessed && isSameResetCycle(lastBlessed)) {
+    const ts = getNextResetTimestamp();
+
+return res.status(200).json({
+  type: 4,
+  data: {
+    content: `hmm, you've already blessed this user. it resets at <t:${ts}:F>.`
+  }
+});
   }
 
   const reward = Math.random() < 0.5 ? 0.01 : 0.05;
 
-  await setField(userId, guildId, "lastBless", new Date());
+  history[target] = new Date();
+  await setField(userId, guildId, "blessHistory", history);
 
   const avatar = discordUser.avatar
     ? `https://cdn.discordapp.com/avatars/${userId}/${discordUser.avatar}.png`
