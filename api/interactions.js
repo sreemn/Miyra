@@ -134,12 +134,12 @@ function isSameResetCycle(lastTime) {
 }
 
 const INGREDIENT_TABLE = [
-  { name: "Flour", cookies: 3, chance: 30 },
-  { name: "Milk", cookies: 8, chance: 25 },
-  { name: "Sugar", cookies: 20, chance: 20 },
-  { name: "Butter", cookies: 50, chance: 13 },
-  { name: "Chocolate Chips", cookies: 120, chance: 8 },
-  { name: "Vanilla Extract", cookies: 300, chance: 4 }
+  { name: "Small Sapling", cookies: 3, chance: 30 },
+  { name: "Green Leaves", cookies: 8, chance: 25 },
+  { name: "Wild Herbs", cookies: 20, chance: 20 },
+  { name: "Ancient Bark", cookies: 50, chance: 13 },
+  { name: "Mystic Clover", cookies: 120, chance: 8 },
+  { name: "Forest Essence", cookies: 300, chance: 4 }
 ];
 
 function rollBake() {
@@ -364,14 +364,14 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
     if (targetUser.bot) {
       return res.status(200).json({
         type: 4,
-        data: { content: "You cannot give cookies to bots." }
+        data: { content: "You cannot give trees to bots." }
       });
     }
 
     if (target === userId) {
       return res.status(200).json({
         type: 4,
-        data: { content: "You cannot give cookies to yourself." }
+        data: { content: "You cannot give trees to yourself." }
       });
     }
 
@@ -417,7 +417,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
       return res.status(200).json({
         type: 4,
         data: {
-          content: `Daily transfer limit reached. You can only send ${TRANSFER_DAILY_LIMIT.toLocaleString()} cookies per day.`
+          content: `Daily transfer limit reached. You can only send ${TRANSFER_DAILY_LIMIT.toLocaleString()} trees per day.`
         }
       });
     }
@@ -425,7 +425,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
     if (sender.balance < amount) {
       return res.status(200).json({
         type: 4,
-        data: { content: "You don't have enough cookies for that." }
+        data: { content: "You don't have enough trees for that." }
       });
     }
 
@@ -443,7 +443,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
     return res.status(200).json({
       type: 4,
       data: {
-        content: `You gave **${amount.toLocaleString()} cookies** to <@${target}>! 🍪`
+        content: `You gave **${amount.toLocaleString()} trees** to <@${target}>! <:tree:1483739101986291862>`
       }
     });
   }
@@ -458,7 +458,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
         embeds: [
           {
             color: 0x9EB5FF,
-            description: `${username}'s Balance: ${user.balance.toLocaleString()} cookies 🍪`
+            description: `${username}'s Balance: ${user.balance.toLocaleString()} trees <:tree:1483739101986291862>`
           }
         ]
       }
@@ -488,7 +488,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
     return res.status(200).json({
       type: 4,
       data: {
-        content: `You claimed your daily reward of \`${reward.toLocaleString()}\` cookies! 🍪`
+        content: `You claimed your daily reward of \`${reward.toLocaleString()}\` trees! <:tree:1483739101986291862>`
       }
     });
   }
@@ -505,7 +505,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
           embeds: [
             {
               color: 0xD1ACA5,
-              description: `Bake again in ${formatTime(left)}`
+              description: `Cut again in ${formatTime(left)}`
             }
           ]
         }
@@ -523,7 +523,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
         embeds: [
           {
             color: 0xBD9881,
-            description: `You baked and found ${item.name} worth ${item.cookies} trees <:tree:1483739101986291862>`
+            description: `You foraged and found ${item.name} worth ${item.cookies} trees <:tree:1483739101986291862>`
           }
         ]
       }
@@ -544,7 +544,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
     if (user.balance < amount) {
       return res.status(200).json({
         type: 4,
-        data: { content: "You don't have enough cookies for that." }
+        data: { content: "You don't have enough trees for that." }
       });
     }
 
@@ -557,7 +557,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
       return res.status(200).json({
         type: 4,
         data: {
-          content: `You cooked and won \`${reward.toLocaleString()}\` cookies! 🔥`
+          content: `You grew your forest and earned \`${reward.toLocaleString()}\` trees! <:tree:1483739101986291862>`
         }
       });
     } else {
@@ -566,7 +566,7 @@ ${username} obtained ${reward} <:star:1483739099558055986>`
       return res.status(200).json({
         type: 4,
         data: {
-          content: `Your cookies burned... you lost \`${amount.toLocaleString()}\` cookies. 🔥`
+          content: `Your forest withered \`${amount.toLocaleString()}\` trees. <:tree:1483739101986291862>`
         }
       });
     }
