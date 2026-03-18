@@ -298,18 +298,14 @@ if (name === "bless") {
     });
   }
 
-  const lastBlessed = history[target];
-
-  if (lastBlessed && isSameResetCycle(lastBlessed)) {
-    const ts = getNextResetTimestamp();
+const ts = getNextResetTimestamp();
 
 return res.status(200).json({
   type: 4,
   data: {
-    content: `hmm, you've already blessed this user. it resets at <t:${ts}:F>.`
+    content: `hmm, you've already blessed this user in the past 24 hours. it resets every day at <t:${ts}:t>.`
   }
 });
-  }
 
   const reward = Math.random() < 0.5 ? 0.01 : 0.05;
 
