@@ -345,7 +345,7 @@ if (name === "bless") {
             icon_url: avatar
           },
           description: `you have blessed <@${target}> . . .
-${username} obtained ${reward} cookies`
+${username} obtained ${reward} <:star:1483739099558055986>`
         }
       ]
     }
