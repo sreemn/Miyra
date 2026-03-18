@@ -97,6 +97,14 @@ function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function getNextResetTimestamp() {
+  const now = new Date();
+  const reset = new Date();
+  reset.setHours(5, 30, 0, 0);
+  if (now >= reset) reset.setDate(reset.getDate() + 1);
+  return Math.floor(reset.getTime() / 1000);
+}
+
 const INGREDIENT_TABLE = [
   { name: "Flour", cookies: 3, chance: 30 },
   { name: "Milk", cookies: 8, chance: 25 },
@@ -242,6 +250,76 @@ if (name === "help") {
           image: {
             url: "https://cdn.discordapp.com/attachments/1483714582651469935/1483720492773806110/ChatGPT_Image_Mar_18_2026_at_12_25_07_PM.png?ex=69bb9de3&is=69ba4c63&hm=8c8a73778794e7e7c65754df8fa20a7eba5b61ef717d8fa7009b26a474d27efd"
           }
+        }
+      ]
+    }
+  });
+}
+
+  if (name === "bless") {
+  const target = body.data.options.find(o => o.name === "user").value;
+
+  const targetUser = await fetch(
+    `https://discord.com/api/v10/users/${target}`,
+    { headers: { Authorization: `Bot ${BOT_TOKEN}` } }
+  ).then(r => r.json());
+
+  const user = await getUser(userId, username, guildId);
+
+  const BLESS_COOLDOWN = 86400000;
+  const left = cooldownLeft(user.lastBless, BLESS_COOLDOWN);
+
+  if (left > 0) {
+    const ts = getNextResetTimestamp();
+
+    return res.status(200).json({
+      type: 4,
+      data: {
+        flags: 64,
+        content: `hmm… your energy needs time to recharge, you can bless again <t:${ts}:R>, resets at <t:${ts}:t>`
+      }
+    });
+  }
+
+  if (target === userId) {
+    return res.status(200).json({
+      type: 4,
+      data: {
+        content: "you can't direct that energy inward, choose someone else"
+      }
+    });
+  }
+
+  if (targetUser.bot) {
+    return res.status(200).json({
+      type: 4,
+      data: {
+        content: "that energy won’t land, choose a different user"
+      }
+    });
+  }
+
+  const reward = Math.random() < 0.5 ? 0.01 : 0.05;
+
+  await setField(userId, guildId, "lastBless", new Date());
+
+  const avatar = discordUser.avatar
+    ? `https://cdn.discordapp.com/avatars/${userId}/${discordUser.avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/0.png`;
+
+  return res.status(200).json({
+    type: 4,
+    data: {
+      embeds: [
+        {
+          color: 0xFDE68A,
+          author: {
+            name: username,
+            icon_url: avatar
+          },
+          description: `you have blessed <@${target}> . . .
+
+${username} obtained **${reward}** <:mimu_star:YOUR_EMOJI_ID>`
         }
       ]
     }
