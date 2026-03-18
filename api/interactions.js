@@ -318,7 +318,6 @@ if (name === "help") {
             icon_url: avatar
           },
           description: `you have blessed <@${target}> . . .
-
 ${username} obtained ${reward} <:star:1483739099558055986>`
         }
       ]
