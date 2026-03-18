@@ -228,27 +228,6 @@ data applies to this runtime instance
   });
 }
 
-  if (name === "invite") {
-    return res.status(200).json({
-      type: 4,
-      data: {
-        content: "Click the button below to invite me to your server!",
-        components: [
-          {
-            type: 1,
-            components: [
-              {
-                type: 2,
-                style: 5,
-                label: "Invite Me!",
-                url: `https://discord.com/oauth2/authorize?client_id=${APP_ID}`
-              }
-            ]
-          }
-        ]
-      }
-    });
-  }
 if (name === "help") {
   return res.status(200).json({
     type: 4,
