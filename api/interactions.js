@@ -255,7 +255,7 @@ if (name === "help") {
     data: {
       embeds: [
         {
-          color: 0x36454F,
+          color: 0xC0EEFF,
           description:
 `type \`/\` and click my icon to see a list of my commands.
 
