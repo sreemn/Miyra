@@ -287,13 +287,7 @@ if (name === "help") {
 if (name === "bless") {
   const target = body.data.options.find(o => o.name === "user").value;
 
-  const targetUser = await fetch(
-    `https://discord.com/api/v10/users/${target}`,
-    { headers: { Authorization: `Bot ${BOT_TOKEN}` } }
-  ).then(r => r.json());
-
-  const user = await getUser(userId, username, guildId);
-  let history = user.blessHistory || {};
+  const targetUser = body.data.resolved.users[target];
 
   if (target === userId) {
     return res.status(200).json({
@@ -302,26 +296,39 @@ if (name === "bless") {
     });
   }
 
-  if (targetUser.bot) {
+  if (targetUser?.bot) {
     return res.status(200).json({
       type: 4,
       data: { content: "that energy won’t land, choose a different user" }
     });
   }
 
-const ts = getNextResetTimestamp();
+  const user = await getUser(userId, username, guildId);
+  let history = user.blessHistory || {};
 
-return res.status(200).json({
-  type: 4,
-  data: {
-    content: `hmm, you've already blessed this user in the past 24 hours. it resets every day at <t:${ts}:t>.`
+  const lastBless = history[target];
+
+  if (lastBless) {
+    const nextReset = getNextResetTimestamp() * 1000;
+    const prevReset = nextReset - 24 * 60 * 60 * 1000;
+    const last = new Date(lastBless).getTime();
+
+    if (last >= prevReset && last < nextReset) {
+      return res.status(200).json({
+        type: 4,
+        data: {
+          content: `hmm, you've already blessed this user in the past 24 hours. it resets every day at <t:${Math.floor(nextReset / 1000)}:t>.`
+        }
+      });
+    }
   }
-});
 
-  const reward = Math.random() < 0.5 ? 0.01 : 0.05;
+  const reward = Math.random() < 0.5 ? 1 : 5;
 
   history[target] = new Date();
   await setField(userId, guildId, "blessHistory", history);
+
+  await safeBalanceUpdate(userId, guildId, reward);
 
   const avatar = discordUser.avatar
     ? `https://cdn.discordapp.com/avatars/${userId}/${discordUser.avatar}.png`
@@ -338,7 +345,7 @@ return res.status(200).json({
             icon_url: avatar
           },
           description: `you have blessed <@${target}> . . .
-${username} obtained ${reward} <:star:1483739099558055986>`
+${username} obtained ${reward} cookies`
         }
       ]
     }
