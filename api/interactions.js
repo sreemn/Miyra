@@ -627,7 +627,7 @@ if (name === "leaderboard") {
   let rows = "";
   for (let i = 0; i < topUsers.length; i++) {
     const u = topUsers[i];
-    rows += `${i + 1}. <@${u.userId}> • \`${u.balance.toLocaleString()}\` <:tree:1483739101986291862>\n`;
+    rows += `${i + 1}. <@${u.userId}> • \`${u.balance.toLocaleString()}\` <:clovers:1483865370396725500>\n`;
   }
 
   const currentUser = await getUser(userId, username, guildId);
@@ -660,7 +660,7 @@ if (name === "leaderboard") {
   if (isTop10) {
     rankText = `-# Congratulations! You are currently ranked **#${rank}**!`;
   } else {
-    rankText = `-# You are ranked **#${rank}** <:tree:1483739101986291862>.`;
+    rankText = `-# You are ranked **#${rank}** <:clovers:1483865370396725500>.`;
   }
 
   return res.status(200).json({
