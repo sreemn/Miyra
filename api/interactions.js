@@ -255,7 +255,6 @@ if (name === "ping") {
 data applies to this runtime instance
 
 > • latency   \`${latency} ms\`
-> • uptime    \`${uptime}\`
 > • region    \`${region}\`
 > • version   \`${version}\``
         }
@@ -268,7 +267,7 @@ if (name === "help") {
   return res.status(200).json({
     type: 4,
     data: {
-      content: "You can find a list of commands here: https://yourbot.site/commands\nJoin the support server if you still have questions: https://discord.gg/yourlink"
+      content: "You can find a list of commands here: https://miyra.bot/commands\nJoin the support server if you still have questions: https://discord.gg/V4avANpqJg"
     }
   });
 }
